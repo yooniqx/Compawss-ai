@@ -1,0 +1,566 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Montserrat:wght@600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Montserrat", sans-serif;
+  
+  --color-immersive-bg: #08080C;
+  --color-immersive-accent: #FF4E00;
+  --color-immersive-safe: #00F2FF;
+  --color-glass-bg: rgba(255, 255, 255, 0.03);
+  --color-glass-border: rgba(255, 255, 255, 0.1);
+}
+
+/* Dynamic theme custom overrides */
+html.light-mode {
+  --color-immersive-bg: #FAF9F6;
+  --color-immersive-accent: #D32F2F;
+  --color-immersive-safe: #006064;
+  --color-glass-bg: rgba(255, 255, 255, 0.85);
+  --color-glass-border: rgba(0, 0, 0, 0.15);
+}
+
+html.high-contrast {
+  --color-glass-bg: #000000;
+  --color-glass-border: #FFFFFF;
+  --color-immersive-bg: #000000;
+  --color-immersive-accent: #FF5500;
+  --color-immersive-safe: #00FFFF;
+}
+
+html.high-contrast.light-mode {
+  --color-glass-bg: #FFFFFF;
+  --color-glass-border: #000000;
+  --color-immersive-bg: #FFFFFF;
+  --color-immersive-accent: #D32F2F;
+  --color-immersive-safe: #006064;
+}
+
+/* Light Mode general styling adjustments & comprehensive semantic resets */
+html.light-mode,
+html.light-mode body,
+html.light-mode #root,
+html.light-mode #root > div {
+  background-color: #FAF9F6 !important;
+  color: #1A1A24 !important;
+}
+
+/* Ensure no element uses low-contrast default white/slate texts on light mode background */
+html.light-mode .text-white {
+  color: #1A1A24 !important;
+}
+
+/* Map all hardcoded dark backgrounds to beautiful slate and warm white surfaces */
+html.light-mode [class*="bg-[#08080C]"],
+html.light-mode [class*="bg-[#090A0F]"],
+html.light-mode [class*="bg-[#0C0F16]"],
+html.light-mode [class*="bg-[#131318]"],
+html.light-mode [class*="bg-[#050508]"],
+html.light-mode [class*="bg-[#0a0b10]"],
+html.light-mode [class*="bg-[#0c0d14]"],
+html.light-mode [class*="bg-black"] {
+  background-color: #FAF9F6 !important;
+  border-color: rgba(0, 0, 0, 0.1) !important;
+  color: #1A1A24 !important;
+}
+
+/* Enhance all cards, panels, list boxes, and popups with robust light-mode elevation */
+html.light-mode .glass-panel,
+html.light-mode [class*="glass-panel"],
+html.light-mode [class*="bg-[#12121A]"],
+html.light-mode [class*="bg-[#0c0c12]"],
+html.light-mode [class*="bg-[#1b1b20]"],
+html.light-mode [class*="bg-[#1f1f25]"],
+html.light-mode [class*="bg-[#14141e]"],
+html.light-mode [class*="bg-[#15171e]"],
+html.light-mode [class*="bg-[#181a20]"],
+html.light-mode [class*="bg-[#191922]"],
+html.light-mode [class*="bg-[#1c1c24]"],
+html.light-mode [class*="bg-[#24242e]"],
+html.light-mode [class*="bg-[#22222b]"],
+html.light-mode [class*="bg-white/5"],
+html.light-mode [class*="bg-white\\/5"],
+html.light-mode [class*="bg-white/10"],
+html.light-mode [class*="bg-white\\/10"],
+html.light-mode [class*="bg-white/[0.02]"],
+html.light-mode [class*="bg-white/[0.01]"],
+html.light-mode [class*="bg-white\\/[0.02\\]"],
+html.light-mode [class*="bg-white\\/[0.01\\]"] {
+  background-color: #FFFFFF !important;
+  border-color: rgba(0, 0, 0, 0.14) !important;
+  border-width: 1px !important;
+  color: #1A1A24 !important;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.04), 0 2px 6px rgba(0, 0, 0, 0.03) !important;
+}
+
+/* Interior secondary panels and secondary text columns (slightly deeper nesting warmth) */
+html.light-mode [class*="bg-[#111116]"],
+html.light-mode [class*="bg-[#06060a]"],
+html.light-mode [class*="bg-[#1a1a24]"] {
+  background-color: #F0EFE9 !important;
+  border-color: rgba(0, 0, 0, 0.12) !important;
+  color: #1D1D28 !important;
+}
+
+/* Core Failsafe Text Overrides for High Accessibility Contrast */
+html.light-mode [class*="text-[#cbc3d7]"],
+html.light-mode [class*="text-[#cbc3d7]/"],
+html.light-mode [class*="text-[#cbc3d7]\\/"],
+html.light-mode [class*="text-[#e4e1e9]"],
+html.light-mode [class*="text-[#E0E0E6]"],
+html.light-mode [class*="text-white"],
+html.light-mode [class*="text-slate-100"],
+html.light-mode [class*="text-slate-200"],
+html.light-mode [class*="text-slate-300"],
+html.light-mode [class*="text-slate-400"],
+html.light-mode [class*="text-gray-300"],
+html.light-mode [class*="text-gray-400"],
+html.light-mode [class*="text-zinc-300"],
+html.light-mode [class*="text-zinc-400"] {
+  color: #2D2D3A !important;
+  font-weight: 500 !important;
+}
+
+/* Bold headings and structural title blocks clarity */
+html.light-mode h1,
+html.light-mode h2,
+html.light-mode h3,
+html.light-mode h4,
+html.light-mode h5,
+html.light-mode h6,
+html.light-mode strong,
+html.light-mode b,
+html.light-mode th {
+  color: #121216 !important;
+  font-weight: 700 !important;
+}
+
+/* Base text copy contrast */
+html.light-mode p,
+html.light-mode span,
+html.light-mode label,
+html.light-mode li {
+  color: #3C3C4B !important;
+}
+
+/* Deep low opacity/meta tags to readable slate gray */
+html.light-mode [class*="/30"],
+html.light-mode [class*="\\/30"],
+html.light-mode [class*="/40"],
+html.light-mode [class*="\\/40"],
+html.light-mode [class*="/45"],
+html.light-mode [class*="\\/45"],
+html.light-mode [class*="/50"],
+html.light-mode [class*="\\/50"],
+html.light-mode [class*="/60"],
+html.light-mode [class*="\\/60"],
+html.light-mode [class*="/65"],
+html.light-mode [class*="\\/65"],
+html.light-mode [class*="/70"],
+html.light-mode [class*="\\/70"],
+html.light-mode [class*="/75"],
+html.light-mode [class*="\\/75"],
+html.light-mode [class*="text-slate-500"],
+html.light-mode [class*="text-gray-500"] {
+  color: #5C5C6E !important;
+}
+
+/* Core Exemption: Keep text crisp white inside active high-contrast buttons, notification badges, progress sliders, and primary gradient ribbons */
+html.light-mode [class*="bg-gradient-to-"]:not([class*="/"]):not([class*="\\/"]),
+html.light-mode button[class*="bg-gradient-"],
+html.light-mode button[class*="bg-[#FF4E00]"]:not([class*="/"]):not([class*="\\/"]),
+html.light-mode [class*="bg-[#FF4E00]"]:not([class*="/"]):not([class*="\\/"]),
+html.light-mode [class*="bg-[#C62828]"]:not([class*="/"]):not([class*="\\/"]),
+html.light-mode [class*="bg-red-500"] *,
+html.light-mode [class*="bg-green-500"] *,
+html.light-mode [class*="bg-amber-500"] *,
+html.light-mode [class*="bg-indigo-500"] *,
+html.light-mode .pulse-accent,
+html.light-mode .pulse-accent *,
+html.light-mode [class*="bg-[#FF4E00]"]:not([class*="/"]):not([class*="\\/"]) [class*="text-white"],
+html.light-mode [class*="bg-[#C62828]"]:not([class*="/"]):not([class*="\\/"]) [class*="text-white"],
+html.light-mode [style*="background-image"] [class*="text-white"],
+html.light-mode [class*="rounded-full bg-[#FF4E00]"],
+html.light-mode .bg-green-500,
+html.light-mode .bg-green-500 * {
+  color: #FFFFFF !important;
+  -webkit-text-fill-color: #FFFFFF !important;
+}
+
+/* Failsafe overrides for elements/buttons with low-opacity orange/cyan/purple backgrounds in Light Mode */
+html.light-mode [class*="bg-[#FF4E00]/10"],
+html.light-mode [class*="bg-[#FF4E00]\\/10"],
+html.light-mode [class*="bg-[#FF4E00]/15"],
+html.light-mode [class*="bg-[#FF4E00]\\/15"],
+html.light-mode [class*="bg-[#FF4E00]/20"],
+html.light-mode [class*="bg-[#FF4E00]\\/20"],
+html.light-mode [class*="bg-[#FF4E00]/30"],
+html.light-mode [class*="bg-[#FF4E00]\\/30"] {
+  background-color: rgba(198, 40, 40, 0.08) !important;
+  border-color: rgba(198, 40, 40, 0.3) !important;
+  color: #C62828 !important;
+}
+html.light-mode [class*="bg-[#FF4E00]/10"] *,
+html.light-mode [class*="bg-[#FF4E00]\\/10"] *,
+html.light-mode [class*="bg-[#FF4E00]/15"] *,
+html.light-mode [class*="bg-[#FF4E00]\\/15"] *,
+html.light-mode [class*="bg-[#FF4E00]/20"] *,
+html.light-mode [class*="bg-[#FF4E00]\\/20"] *,
+html.light-mode [class*="bg-[#FF4E00]/30"] *,
+html.light-mode [class*="bg-[#FF4E00]\\/30"] * {
+  color: #C62828 !important;
+}
+
+html.light-mode [class*="bg-[#00F2FF]/10"],
+html.light-mode [class*="bg-[#00F2FF]\\/10"],
+html.light-mode [class*="bg-[#00F2FF]/20"],
+html.light-mode [class*="bg-[#00F2FF]\\/20"],
+html.light-mode [class*="bg-[#00F2FF]/30"],
+html.light-mode [class*="bg-[#00F2FF]\\/30"],
+html.light-mode [class*="bg-[#4cd7f6]/10"],
+html.light-mode [class*="bg-[#4cd7f6]\\/10"],
+html.light-mode [class*="bg-[#4cd7f6]/20"],
+html.light-mode [class*="bg-[#4cd7f6]\\/20"] {
+  background-color: rgba(0, 96, 100, 0.08) !important;
+  border-color: rgba(0, 96, 100, 0.25) !important;
+  color: #006064 !important;
+}
+html.light-mode [class*="bg-[#00F2FF]/10"] *,
+html.light-mode [class*="bg-[#00F2FF]\\/10"] *,
+html.light-mode [class*="bg-[#00F2FF]/20"] *,
+html.light-mode [class*="bg-[#00F2FF]\\/20"] *,
+html.light-mode [class*="bg-[#4cd7f6]/10"] *,
+html.light-mode [class*="bg-[#4cd7f6]\\/10"] *,
+html.light-mode [class*="bg-[#4cd7f6]/20"] *,
+html.light-mode [class*="bg-[#4cd7f6]\\/20"] * {
+  color: #006064 !important;
+}
+
+/* Active status checkbox lists in light mode override */
+html.light-mode [class*="bg-green-500/5"] {
+  background-color: rgba(34, 197, 94, 0.08) !important;
+  border-color: rgba(34, 197, 94, 0.3) !important;
+}
+html.light-mode [class*="bg-green-500/5"] * {
+  color: #15803D !important;
+}
+
+/* Passive/Secondary Button Enhancement - turns dull dark-mode styles in light mode into tactile active controls */
+html.light-mode button[class*="bg-white/5"],
+html.light-mode button[class*="bg-white\\/5"],
+html.light-mode button[class*="bg-white/10"],
+html.light-mode button[class*="bg-white\\/10"],
+html.light-mode button[class*="bg-[#090A0F]"] {
+  background-color: #ECEAE1 !important;
+  border: 1px solid rgba(0, 0, 0, 0.16) !important;
+  color: #1A1A24 !important;
+  font-weight: 650 !important;
+}
+html.light-mode button[class*="bg-white/5"]:hover,
+html.light-mode button[class*="bg-white\\/5"]:hover {
+  background-color: #E2DFD3 !important;
+}
+
+/* Typography headers and layout colors resets */
+html.light-mode .bg-clip-text {
+  background-image: none !important;
+  color: #121216 !important;
+  -webkit-text-fill-color: #121216 !important;
+}
+
+html.light-mode .text-transparent {
+  color: #121216 !important;
+  -webkit-text-fill-color: #121216 !important;
+}
+
+/* Navigation & Headers styling blocks in Light Mode */
+html.light-mode nav,
+html.light-mode nav.fixed,
+html.light-mode header,
+html.light-mode header.sticky {
+  background-color: rgba(250, 249, 246, 0.96) !important;
+  border-color: rgba(0, 0, 0, 0.14) !important;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05) !important;
+}
+html.light-mode nav button *,
+html.light-mode nav button span {
+  color: #434352 !important;
+}
+html.light-mode nav button [class*="text-[#FF4E00]"],
+html.light-mode nav button [class*="text-[#FF4E00]"] * {
+  color: #C62828 !important;
+}
+
+/* Borders optimization */
+html.light-mode .border-white\/10,
+html.light-mode .border-white\/5,
+html.light-mode .border-white\/20,
+html.light-mode .border-white\/30,
+html.light-mode .border-slate-800,
+html.light-mode [class*="border-white/"] {
+  border-color: rgba(0, 0, 0, 0.12) !important;
+}
+
+/* Input Fields and Select lists readability */
+html.light-mode input,
+html.light-mode textarea,
+html.light-mode select {
+  background-color: #FFFFFF !important;
+  color: #1A1A24 !important;
+  border: 1px solid rgba(0, 0, 0, 0.18) !important;
+}
+html.light-mode input::placeholder,
+html.light-mode textarea::placeholder {
+  color: #7B7B8B !important;
+}
+
+/* Active tactical radar overwatch map and telemetry scopes */
+html.light-mode .h-44.bg-\[\#050508\],
+html.light-mode .h-64.bg-\[\#131318\],
+html.light-mode [class*="bg-[#050508]"],
+html.light-mode [class*="bg-[#131318]"] {
+  background-color: #E6E5DC !important;
+  border: 1px solid rgba(0, 0, 0, 0.15) !important;
+}
+html.light-mode svg path[stroke="#CBC3D7"] {
+  stroke: #555562 !important;
+}
+html.light-mode svg path[stroke="#4CD7F6"] {
+  stroke: #006064 !important;
+}
+html.light-mode svg path[stroke="#A078FF"] {
+  stroke: #673AB7 !important;
+}
+
+/* Rescue Orange Accent Adjustments */
+html.light-mode .text-\[\#FF4E00\],
+html.light-mode [class*="text-[#FF4E00]"] {
+  color: #C62828 !important; /* Premium dark crimson red for optimal contrast in light screens */
+}
+html.light-mode .bg-\[\#FF4E00\]\/10,
+html.light-mode [class*="bg-[#FF4E00]/10"],
+html.light-mode [class*="bg-[#FF4E00]\\/10"] {
+  background-color: rgba(198, 40, 40, 0.08) !important;
+}
+html.light-mode .border-\[\#FF4E00\]\/30,
+html.light-mode [class*="border-[#FF4E00]/30"],
+html.light-mode [class*="border-[#FF4E00]\\/30"] {
+  border-color: rgba(198, 40, 40, 0.28) !important;
+}
+
+/* Satellite Cyan Accent Adjustments */
+html.light-mode .text-\[\#00F2FF\],
+html.light-mode [class*="text-[#00F2FF]"],
+html.light-mode [class*="text-[#4cd7f6]"] {
+  color: #006064 !important; /* Premium rich teal for high contrast visibility */
+}
+html.light-mode .bg-\[\#00F2FF\]\/10,
+html.light-mode [class*="bg-[#00F2FF]/10"],
+html.light-mode [class*="bg-[#00F2FF]\\/10"],
+html.light-mode [class*="bg-[#4cd7f6]/20"],
+html.light-mode [class*="bg-[#4cd7f6]\\/20"] {
+  background-color: rgba(0, 96, 100, 0.08) !important;
+}
+html.light-mode .border-\[\#00F2FF\]\/30,
+html.light-mode [class*="border-[#00F2FF]/30"],
+html.light-mode [class*="border-[#00F2FF]\\/30"],
+html.light-mode [class*="border-[#4cd7f6]/20"],
+html.light-mode [class*="border-[#4cd7f6]\\/20"] {
+  border-color: rgba(0, 96, 100, 0.25) !important;
+}
+
+/* Overlays and Backdrop modals */
+html.light-mode .bg-black\/70,
+html.light-mode [class*="bg-[#0a0b10]/80"],
+html.light-mode [class*="bg-black/70"] {
+  background-color: rgba(250, 249, 246, 0.85) !important;
+  backdrop-filter: blur(16px) !important;
+}
+
+/* High Contrast Mode general styling adjustments */
+html.high-contrast,
+html.high-contrast body {
+  background-color: #000000 !important;
+  color: #FFFFFF !important;
+}
+
+html.high-contrast.light-mode,
+html.high-contrast.light-mode body {
+  background-color: #FFFFFF !important;
+  color: #000000 !important;
+}
+
+html.high-contrast .glass-panel,
+html.high-contrast .bg-[#08080C],
+html.high-contrast .bg-[#12121A],
+html.high-contrast .bg-[#090A0F],
+html.high-contrast .bg-[#0C0F16],
+html.high-contrast .bg-white\/5,
+html.high-contrast nav,
+html.high-contrast header {
+  background-color: #000000 !important;
+  border: 2px solid #FFFFFF !important;
+  box-shadow: none !important;
+}
+
+html.high-contrast.light-mode .glass-panel,
+html.high-contrast.light-mode .bg-[#08080C],
+html.high-contrast.light-mode .bg-[#12121A],
+html.high-contrast.light-mode .bg-[#090A0F],
+html.high-contrast.light-mode .bg-[#0C0F16],
+html.high-contrast.light-mode .bg-white\/5,
+html.high-contrast.light-mode nav,
+html.high-contrast.light-mode header {
+  background-color: #FFFFFF !important;
+  border: 2px solid #000000 !important;
+  box-shadow: none !important;
+}
+
+html.high-contrast .text-white,
+html.high-contrast .text-[#cbc3d7],
+html.high-contrast .text-[#cbc3d7]/50,
+html.high-contrast .text-[#cbc3d7]/60,
+html.high-contrast .text-[#cbc3d7]/70,
+html.high-contrast .text-[#cbc3d7]/85,
+html.high-contrast .text-white/70,
+html.high-contrast .text-white/60,
+html.high-contrast p,
+html.high-contrast span {
+  color: #FFFFFF !important;
+  font-weight: 600 !important;
+}
+
+html.high-contrast.light-mode .text-white,
+html.high-contrast.light-mode .text-[#cbc3d7],
+html.high-contrast.light-mode .text-[#cbc3d7]/50,
+html.high-contrast.light-mode .text-[#cbc3d7]/60,
+html.high-contrast.light-mode .text-[#cbc3d7]/70,
+html.high-contrast.light-mode .text-[#cbc3d7]/85,
+html.high-contrast.light-mode .text-white/70,
+html.high-contrast.light-mode .text-white/60,
+html.high-contrast.light-mode p,
+html.high-contrast.light-mode span {
+  color: #000000 !important;
+  font-weight: 700 !important;
+}
+
+html.high-contrast .border-white\/10,
+html.high-contrast .border-white\/5,
+html.high-contrast .border-white\/20,
+html.high-contrast .border-[#FF4E00]\/20,
+html.high-contrast .border-[#FF4E00]\/30,
+html.high-contrast .border-[#00F2FF]\/20,
+html.high-contrast .border-[#00F2FF]\/30 {
+  border-color: #FFFFFF !important;
+  border-width: 1.5px !important;
+}
+
+html.high-contrast.light-mode .border-white\/10,
+html.high-contrast.light-mode .border-white\/5,
+html.high-contrast.light-mode .border-white\/20,
+html.high-contrast.light-mode .border-[#FF4E00]\/20,
+html.high-contrast.light-mode .border-[#FF4E00]\/30,
+html.high-contrast.light-mode .border-[#00F2FF]\/20,
+html.high-contrast.light-mode .border-[#00F2FF]\/30 {
+  border-color: #000000 !important;
+  border-width: 1.5px !important;
+}
+
+/* Color blindness deficit filter classes */
+.filter-protanopia {
+  filter: url(#protanopia) !important;
+}
+.filter-deuteranopia {
+  filter: url(#deuteranopia) !important;
+}
+.filter-tritanopia {
+  filter: url(#tritanopia) !important;
+}
+
+/* Atmosphere background transition */
+.atmosphere {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 10% 20%, rgba(255, 78, 0, 0.12) 0%, transparent 40%), 
+              radial-gradient(circle at 90% 80%, rgba(0, 242, 255, 0.07) 0%, transparent 40%);
+  z-index: 0;
+  pointer-events: none;
+  transition: opacity 0.5s ease;
+}
+
+html.light-mode .atmosphere {
+  background: radial-gradient(circle at 10% 20%, rgba(255, 78, 0, 0.05) 0%, transparent 40%),
+              radial-gradient(circle at 90% 80%, rgba(0, 242, 255, 0.04) 0%, transparent 40%);
+}
+
+/* Glass panel style */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+.glow-text {
+  text-shadow: 0 0 10px rgba(255, 78, 0, 0.6), 0 0 20px rgba(255, 78, 0, 0.2);
+}
+
+.glow-text-cyan {
+  text-shadow: 0 0 10px rgba(0, 242, 255, 0.6), 0 0 20px rgba(0, 242, 255, 0.2);
+}
+
+.pulse-accent {
+  animation: pulse-red 2s infinite;
+}
+
+@keyframes pulse-red {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 78, 0, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(255, 78, 0, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 78, 0, 0);
+  }
+}
+
+/* Atmospheric custom animations */
+@keyframes ambient-pulse {
+  0%, 100% { opacity: 0.18; transform: translate(-50%, -50%) scale(1); }
+  50% { opacity: 0.28; transform: translate(-50%, -50%) scale(1.08); }
+}
+.animate-ambient {
+  animation: ambient-pulse 8s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+/* Webkit scrollbar cleaner */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #08080C;
+}
+html.light-mode ::-webkit-scrollbar-track {
+  background: #FAF9F6;
+}
+::-webkit-scrollbar-thumb {
+  background: #25252e;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #FF4E00;
+}
+
+
