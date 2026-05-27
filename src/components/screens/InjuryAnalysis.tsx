@@ -44,6 +44,7 @@ import {
 import { Screen } from '../../types';
 import { CompawssLogo } from '../CompawssLogo';
 import { useRescue } from '../../context/RescueContext';
+import { uploadRescueImage } from '../../services/supabaseClient';
 
 
 /* ==========================================================================
@@ -252,11 +253,29 @@ export const VoiceReportingView: React.FC<VoiceReportingProps> = ({ onNavigate }
   };
 
   // File Uploader handle
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, mediaType: 'photo' | 'video') => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, mediaType: 'photo' | 'video') => {
     const file = e.target.files?.[0];
     if (file) {
-      const url = URL.createObjectURL(file);
-      setCapturedMedia({ type: mediaType, url });
+      try {
+        const url = await uploadRescueImage(file);
+        setCapturedMedia({ type: mediaType, url });
+        
+        // Also update our localStorage draft image URL immediately!
+        const rawDraft = localStorage.getItem('compawss_active_draft');
+        if (rawDraft) {
+          try {
+            const parsed = JSON.parse(rawDraft);
+            parsed.image = url;
+            localStorage.setItem('compawss_active_draft', JSON.stringify(parsed));
+          } catch (e) {
+            console.warn('Error syncing draft storage:', e);
+          }
+        }
+      } catch (err) {
+        console.error('File upload conversion failed:', err);
+        const url = URL.createObjectURL(file);
+        setCapturedMedia({ type: mediaType, url });
+      }
     }
   };
 

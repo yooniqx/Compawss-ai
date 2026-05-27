@@ -19,7 +19,19 @@ import {
   NOTIFICATIONS_DATA as INITIAL_NOTIFICATIONS,
   DASHBOARD_STATS as INITIAL_STATS
 } from '../data';
-import { findNearbyVets, fetchNearbyNGOs } from '../services/apiService';
+import { 
+  findNearbyVets, 
+  fetchNearbyNGOs,
+  fetchVolunteersTable,
+  fetchFosterHomesTable
+} from '../services/apiService';
+import { 
+  isSupabaseConfigured, 
+  supabase, 
+  safeInsertSupabaseRecord, 
+  safeUpdateSupabaseRecord, 
+  safeFetchSupabaseTable 
+} from '../services/supabaseClient';
 
 // Indian localities coordinate database for dynamic distance calculations
 export interface LocationCoordinate {
@@ -74,6 +86,7 @@ interface RescueContextType {
   requestGpsPermission: () => Promise<void>;
   updateUserLocationDirectlyByLocality: (localityName: string) => void;
   reportNewRescueCase: (caseInput: Partial<RescueCase> & { animalName: string; species: any; breed: string; type: any; locationText: string; reporterName: string; reporterContact: string; isAnonymous: boolean; audioUrl?: string; image?: string; isImmediateSos?: boolean }) => Promise<RescueCase>;
+  reportNewCase: (caseInput: any) => Promise<RescueCase>;
   assignResponderToCase: (caseId: string, volunteerId: string) => void;
   assignNgoToCase: (caseId: string, ngoId: string) => void;
   assignFosterToCase: (caseId: string, fosterId: string) => void;
@@ -89,6 +102,88 @@ interface RescueContextType {
 }
 
 const RescueContext = createContext<RescueContextType | undefined>(undefined);
+
+// Database record conversion to frontend models
+function mapSupabaseToRescueCase(row: any): RescueCase {
+  const id = String(row.id || '');
+  const species = row.species || 'Dog';
+  const name = row.animal_name || 'Unnamed Stray';
+  const breed = row.breed || 'Indie Mix';
+  const age = row.age || 'Sighted Stray';
+  const gender = row.gender || 'Unknown';
+  const imgUrl = row.image || 'https://images.unsplash.com/photo-1543509615-fd39d21e1bc9?auto=format&fit=crop&q=80&w=300';
+  
+  return {
+    id,
+    animalProfile: {
+      id: `animal-${id}`,
+      name,
+      species,
+      breed,
+      age,
+      gender,
+      image: imgUrl,
+      vitals: { heartRate: 110, activity: 'Normal' }
+    },
+    type: row.type || 'Injured Stray',
+    location: row.location || 'Sighted Location Area',
+    region: row.region || 'Local area',
+    distance: 'Nearby',
+    timeAgo: row.created_at ? new Date(row.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now',
+    latitude: row.latitude || 19.0544,
+    longitude: row.longitude || 72.8402,
+    reporterName: row.reporter_name || 'Citizen',
+    reporterContact: row.reporter_contact || '',
+    isAnonymous: !!row.is_anonymous,
+    status: row.status || 'Reported',
+    priority: row.priority || 'Standard',
+    assignedResponderId: row.assigned_responder_id || undefined,
+    assignedNgoId: row.assigned_ngo_id || undefined,
+    assignedVetId: row.assigned_vet_id || undefined,
+    assignedFosterId: row.assigned_foster_id || undefined,
+    timeline: Array.isArray(row.timeline) ? row.timeline : [],
+    medicalRecord: row.medical_diagnostics ? {
+      id: `med-${id}`,
+      caseId: id,
+      diagnostics: row.medical_diagnostics,
+      severity: row.medical_severity || 'Observation',
+      vitals: { heartRate: 115, activity: 'Low' },
+      treatmentPlan: 'Active clinic diagnostics, fluid infusion, wound management.',
+      prescription: Array.isArray(row.medical_prescription) ? row.medical_prescription : [],
+      vetId: row.assigned_vet_id || 'vet-auto',
+      createdAt: 'Just now'
+    } : undefined
+  };
+}
+
+function mapRescueCaseToSupabase(input: Partial<RescueCase> & { image?: string }) {
+  return {
+    animal_name: input.animalProfile?.name || 'Unnamed Stray',
+    species: input.animalProfile?.species || 'Dog',
+    breed: input.animalProfile?.breed || 'Indie Mix',
+    age: input.animalProfile?.age || 'Sighted Stray',
+    gender: input.animalProfile?.gender || 'Unknown',
+    image: input.animalProfile?.image || input.image || '',
+    type: input.type || 'Injured Stray',
+    location: input.location || '',
+    region: input.region || '',
+    latitude: input.latitude || 19.0544,
+    longitude: input.longitude || 72.8402,
+    reporter_name: input.reporterName || '',
+    reporter_contact: input.reporterContact || '',
+    is_anonymous: !!input.isAnonymous,
+    status: input.status || 'Reported',
+    priority: input.priority || 'Standard',
+    assigned_responder_id: input.assignedResponderId || null,
+    assigned_ngo_id: input.assignedNgoId || null,
+    assigned_vet_id: input.assignedVetId || null,
+    assigned_foster_id: input.assignedFosterId || null,
+    medical_diagnostics: input.medicalRecord?.diagnostics || null,
+    medical_severity: input.medicalRecord?.severity || 'Observation',
+    medical_prescription: input.medicalRecord?.prescription || [],
+    timeline: input.timeline || []
+  };
+}
 
 export const RescueProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [vets, setVets] = useState<Vet[]>(INITIAL_VETS);
@@ -124,18 +219,42 @@ export const RescueProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return d < 1 ? `${Math.round(d * 1000)} m` : `${d.toFixed(1)} km`;
   };
 
-  // Sync Vets, NGOs and distances dynamically when user location shifts
+  // Sync Vets, NGOs, Volunteers, Fosters, and Cases dynamically
   useEffect(() => {
     let active = true;
 
     async function loadDynamicServices() {
       try {
+        // Fetch active nearby vets & NGOs
         const fetchedVets = await findNearbyVets(userLocation.latitude, userLocation.longitude);
         const fetchedNGOs = await fetchNearbyNGOs(userLocation.latitude, userLocation.longitude, userLocation.city);
         
+        // Fetch volunteers
+        const dbVols = await fetchVolunteersTable();
+        // Fetch foster homes
+        const dbFosters = await fetchFosterHomesTable();
+
+        // Query active cases directly from Supabase table 'rescue_cases'
+        let finalCases = INITIAL_CASES;
+        if (isSupabaseConfigured()) {
+          const fetchedCases = await safeFetchSupabaseTable('rescue_cases');
+          if (fetchedCases && fetchedCases.length > 0) {
+            finalCases = fetchedCases.map(row => mapSupabaseToRescueCase(row));
+          }
+        }
+
         if (active) {
-          setVets(fetchedVets);
-          setNgos(fetchedNGOs);
+          if (fetchedVets && fetchedVets.length > 0) setVets(fetchedVets);
+          if (fetchedNGOs && fetchedNGOs.length > 0) setNgos(fetchedNGOs);
+          if (dbVols && dbVols.length > 0) setVolunteers(dbVols);
+          if (dbFosters && dbFosters.length > 0) setFosters(dbFosters);
+          
+          // Re-sort and map distance dynamically
+          const filteredCases = finalCases.map(c => {
+            const dist = calculateDistance(userLocation.latitude, userLocation.longitude, c.latitude, c.longitude);
+            return { ...c, distance: `${dist} away` };
+          });
+          setCases(filteredCases);
         }
       } catch (err) {
         console.error('Failed to load dynamic nearby services:', err);
@@ -144,12 +263,47 @@ export const RescueProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     loadDynamicServices();
 
-    // Update Cases distances
-    setCases(prev => prev.map(c => {
-      const dist = calculateDistance(userLocation.latitude, userLocation.longitude, c.latitude, c.longitude);
-      return { ...c, distance: `${dist}` };
-    }));
+    return () => {
+      active = false;
+    };
   }, [userLocation]);
+
+  // Realtime Supabase Channels subscription
+  useEffect(() => {
+    if (!isSupabaseConfigured()) return;
+
+    const channel = supabase
+      .channel('public:rescue_cases')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'rescue_cases' },
+        (payload) => {
+          console.log('[Supabase Realtime] Event received:', payload);
+          if (payload.eventType === 'INSERT') {
+            const mapped = mapSupabaseToRescueCase(payload.new);
+            setCases(prev => {
+              if (prev.some(c => c.id === mapped.id)) return prev;
+              return [mapped, ...prev];
+            });
+            addNotification(
+              'Realtime Incident Sighted',
+              `Incoming! Sighted "${mapped.animalProfile.name}" (${mapped.type}) reported in ${mapped.region}.`,
+              'Urgent'
+            );
+          } else if (payload.eventType === 'UPDATE') {
+            const mapped = mapSupabaseToRescueCase(payload.new);
+            setCases(prev => prev.map(c => c.id === mapped.id ? { ...c, ...mapped } : c));
+          } else if (payload.eventType === 'DELETE') {
+            setCases(prev => prev.filter(c => c.id !== payload.old.id));
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   // Request browser Geo-GPS permission or fallback to elegant simulation
   const requestGpsPermission = async () => {
@@ -290,7 +444,7 @@ export const RescueProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         caseId: generatedId,
         status: 'Reported',
         title: 'Rescue Application Processed',
-        description: `Citizen emergency logged by ${input.isAnonymous ? 'Anonymous' : input.reporterName}. Details parsed: Sighted "${input.animalName || 'Street animal'}" at ${input.locationText || userLocation.name}.`,
+        description: `Citizen emergency logged by ${input.isAnonymous ? 'Anonymous' : input.reporterName || 'Citizen'}. Details parsed: Sighted "${input.animalName || 'Street animal'}" at ${input.locationText || userLocation.name}.`,
         timestamp: 'Just now',
         authorName: input.reporterName || 'Citizen'
       }
@@ -340,6 +494,28 @@ export const RescueProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       } : undefined
     };
 
+    // Submits directly to the emergency_reports table
+    if (isSupabaseConfigured()) {
+      await safeInsertSupabaseRecord('emergency_reports', {
+        reporter_name: input.isAnonymous ? 'Anonymous' : (input.reporterName || 'Citizen'),
+        reporter_contact: input.reporterContact || '',
+        is_anonymous: !!input.isAnonymous,
+        animal_name: input.animalName || 'Unnamed Stray',
+        species: input.species || 'Dog',
+        breed: input.breed || 'Indie Mix',
+        incident_type: input.type || 'Injured Stray',
+        location_text: input.locationText || userLocation.name,
+        latitude: userLocation.latitude,
+        longitude: userLocation.longitude,
+        urgency_level: priorityCode,
+        audio_url: input.audioUrl || null,
+        image_url: input.image || null
+      });
+
+      // Also submit to the central rescue_cases list
+      await safeInsertSupabaseRecord('rescue_cases', mapRescueCaseToSupabase(newCase));
+    }
+
     if (isOffline) {
       setOfflineQueue(prev => [...prev, newCase]);
       addNotification(
@@ -350,7 +526,7 @@ export const RescueProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     } else {
       setCases(prev => [newCase, ...prev]);
       addNotification(
-        'Critical Dispatch Sentry',
+         'Critical Dispatch Sentry',
         `Incident ${generatedId} (${newCase.animalProfile.name} - ${newCase.type}) logged safely. Dispatches notifying nearest NGOs!`,
         'Urgent'
       );
@@ -366,21 +542,41 @@ export const RescueProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return newCase;
   };
 
-  const assignResponderToCase = (caseId: string, volunteerId: string) => {
+  // Adapter mapping to support both caller conventions
+  const reportNewCase = async (caseInput: any): Promise<RescueCase> => {
+    // Adapt standard partial format directly to standard submit fields
+    const formatted = {
+      ...caseInput,
+      animalName: caseInput.animalProfile?.name || 'Unnamed Stray',
+      species: caseInput.animalProfile?.species || 'Dog',
+      breed: caseInput.animalProfile?.breed || 'Indie Mix',
+      type: caseInput.type || 'Injured Stray',
+      locationText: caseInput.location || userLocation.name,
+      reporterName: caseInput.reporterName || 'Citizen Rescuer',
+      reporterContact: caseInput.reporterContact || '+91 99999 99999',
+      isAnonymous: !!caseInput.isAnonymous,
+      image: caseInput.animalProfile?.image || caseInput.image
+    };
+
+    return reportNewRescueCase(formatted);
+  };
+
+  const assignResponderToCase = async (caseId: string, volunteerId: string) => {
     const vol = volunteers.find(v => v.id === volunteerId);
     if (!vol) return;
 
+    const update: CaseUpdate = {
+      id: `timeline-${Date.now()}`,
+      caseId,
+      status: 'Assigned',
+      title: `Field Responder Dispatched`,
+      description: `Active community volunteer ${vol.name} accepted. Driving emergency response equipment. Contact info: ${vol.contact}`,
+      timestamp: 'Just now',
+      authorName: 'Dispatcher Center'
+    };
+
     setCases(prev => prev.map(c => {
       if (c.id === caseId) {
-        const update: CaseUpdate = {
-          id: `timeline-${Date.now()}`,
-          caseId,
-          status: 'Assigned',
-          title: `Field Responder Dispatched`,
-          description: `Active community volunteer ${vol.name} accepted. Driving emergency response equipment. Contact info: ${vol.contact}`,
-          timestamp: 'Just now',
-          authorName: 'Dispatcher Center'
-        };
         return {
           ...c,
           status: 'Rescue in Progress',
@@ -391,6 +587,14 @@ export const RescueProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return c;
     }));
 
+    if (isSupabaseConfigured()) {
+      await safeUpdateSupabaseRecord('rescue_cases', caseId, {
+        status: 'Rescue in Progress',
+        assigned_responder_id: volunteerId,
+        timeline: [...(cases.find(c => c.id === caseId)?.timeline || []), update]
+      });
+    }
+
     addNotification(
       'Ambulance Responder Armed',
       `${vol.name} assigned as lead supervisor for rescue case ${caseId}.`,
@@ -398,21 +602,22 @@ export const RescueProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     );
   };
 
-  const assignNgoToCase = (caseId: string, ngoId: string) => {
+  const assignNgoToCase = async (caseId: string, ngoId: string) => {
     const ngo = ngos.find(n => n.id === ngoId);
     if (!ngo) return;
 
+    const update: CaseUpdate = {
+      id: `timeline-${Date.now()}`,
+      caseId,
+      status: 'Assigned',
+      title: `Coordinated by ${ngo.name}`,
+      description: `Supervised intake processing and sheltering support centered in ${ngo.city}.`,
+      timestamp: 'Just now',
+      authorName: 'NGO Coordinator'
+    };
+
     setCases(prev => prev.map(c => {
       if (c.id === caseId) {
-        const update: CaseUpdate = {
-          id: `timeline-${Date.now()}`,
-          caseId,
-          status: 'Assigned',
-          title: `Coordinated by ${ngo.name}`,
-          description: `Supervised intake processing and sheltering support centered in ${ngo.city}.`,
-          timestamp: 'Just now',
-          authorName: 'NGO Coordinator'
-        };
         return {
           ...c,
           assignedNgoId: ngoId,
@@ -422,6 +627,13 @@ export const RescueProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return c;
     }));
 
+    if (isSupabaseConfigured()) {
+      await safeUpdateSupabaseRecord('rescue_cases', caseId, {
+        assigned_ngo_id: ngoId,
+        timeline: [...(cases.find(c => c.id === caseId)?.timeline || []), update]
+      });
+    }
+
     addNotification(
       'Shelter Node Connected',
       `${ngo.name} scheduled intake accommodation slot for case ${caseId}.`,
@@ -429,21 +641,22 @@ export const RescueProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     );
   };
 
-  const assignFosterToCase = (caseId: string, fosterId: string) => {
+  const assignFosterToCase = async (caseId: string, fosterId: string) => {
     const foster = fosters.find(f => f.id === fosterId);
     if (!foster) return;
 
+    const update: CaseUpdate = {
+      id: `timeline-${Date.now()}`,
+      caseId,
+      status: 'Foster Care',
+      title: 'Sheltered with Community Foster Home',
+      description: `Safely nested with host ${foster.hostName} in ${foster.location}. Post-op healing initiated.`,
+      timestamp: 'Just now',
+      authorName: 'Foster Support Node'
+    };
+
     setCases(prev => prev.map(c => {
       if (c.id === caseId) {
-        const update: CaseUpdate = {
-          id: `timeline-${Date.now()}`,
-          caseId,
-          status: 'Foster Care',
-          title: 'Sheltered with Community Foster Home',
-          description: `Safely nested with host ${foster.hostName} in ${foster.location}. Post-op healing initiated.`,
-          timestamp: 'Just now',
-          authorName: 'Foster Support Node'
-        };
         return {
           ...c,
           status: 'Foster Care',
@@ -454,6 +667,14 @@ export const RescueProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return c;
     }));
 
+    if (isSupabaseConfigured()) {
+      await safeUpdateSupabaseRecord('rescue_cases', caseId, {
+        status: 'Foster Care',
+        assigned_foster_id: fosterId,
+        timeline: [...(cases.find(c => c.id === caseId)?.timeline || []), update]
+      });
+    }
+
     addNotification(
       'Family Hearth Armed',
       `Transferred patient to ${foster.hostName}'s recuperation quarters.`,
@@ -461,18 +682,19 @@ export const RescueProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     );
   };
 
-  const addCaseTimelineEvent = (caseId: string, status: string, title: string, desc: string, author: string) => {
+  const addCaseTimelineEvent = async (caseId: string, status: string, title: string, desc: string, author: string) => {
+    const update: CaseUpdate = {
+      id: `timeline-${Date.now()}`,
+      caseId,
+      status: status,
+      title,
+      description: desc,
+      timestamp: 'Just now',
+      authorName: author
+    };
+
     setCases(prev => prev.map(c => {
       if (c.id === caseId) {
-        const update: CaseUpdate = {
-          id: `timeline-${Date.now()}`,
-          caseId,
-          status: status,
-          title,
-          description: desc,
-          timestamp: 'Just now',
-          authorName: author
-        };
         return {
           ...c,
           status: status as any,
@@ -481,35 +703,42 @@ export const RescueProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
       return c;
     }));
+
+    if (isSupabaseConfigured()) {
+      await safeUpdateSupabaseRecord('rescue_cases', caseId, {
+        status,
+        timeline: [...(cases.find(c => c.id === caseId)?.timeline || []), update]
+      });
+    }
   };
 
-  const addVetMedicalRecord = (caseId: string, diagnostics: string, severity: 'Critical' | 'Observation' | 'Stable', prescription: string[], vetId: string) => {
+  const addVetMedicalRecord = async (caseId: string, diagnostics: string, severity: 'Critical' | 'Observation' | 'Stable', prescription: string[], vetId: string) => {
     const vet = vets.find(v => v.id === vetId);
     
+    const record: MedicalRecord = {
+      id: `med-${Date.now()}`,
+      caseId,
+      diagnostics,
+      severity,
+      vitals: { heartRate: 110, activity: 'Low' },
+      treatmentPlan: `Admitted for observation by ${vet?.name || 'Veterinarian'}. Regular fluid support, surgical cleansing.`,
+      prescription,
+      vetId,
+      createdAt: 'Just now'
+    };
+    
+    const update: CaseUpdate = {
+      id: `timeline-${Date.now()}`,
+      caseId,
+      status: 'Veterinary Care',
+      title: 'Emergency Medical Summary Logged',
+      description: `Stray admitted to surgical critical. Diagnosis: ${diagnostics}. Prescribed meds: ${prescription.join(', ')}. Signed by Dr. ${vet?.name || 'Clinic'}`,
+      timestamp: 'Just now',
+      authorName: vet?.name || 'Veterinarian'
+    };
+
     setCases(prev => prev.map(c => {
       if (c.id === caseId) {
-        const record: MedicalRecord = {
-          id: `med-${Date.now()}`,
-          caseId,
-          diagnostics,
-          severity,
-          vitals: { heartRate: 110, activity: 'Low' },
-          treatmentPlan: `Admitted for observation by ${vet?.name || 'Veterinarian'}. Regular fluid support, surgical cleansing.`,
-          prescription,
-          vetId,
-          createdAt: 'Just now'
-        };
-        
-        const update: CaseUpdate = {
-          id: `timeline-${Date.now()}`,
-          caseId,
-          status: 'Veterinary Care',
-          title: 'Emergency Medical Summary Logged',
-          description: `Stray admitted to surgical critical. Diagnosis: ${diagnostics}. Prescribed meds: ${prescription.join(', ')}. Signed by Dr. ${vet?.name || 'Clinic'}`,
-          timestamp: 'Just now',
-          authorName: vet?.name || 'Veterinarian'
-        };
-
         return {
           ...c,
           status: 'Veterinary Care',
@@ -521,6 +750,17 @@ export const RescueProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return c;
     }));
 
+    if (isSupabaseConfigured()) {
+      await safeUpdateSupabaseRecord('rescue_cases', caseId, {
+        status: 'Veterinary Care',
+        assigned_vet_id: vetId,
+        medical_diagnostics: diagnostics,
+        medical_severity: severity,
+        medical_prescription: prescription,
+        timeline: [...(cases.find(c => c.id === caseId)?.timeline || []), update]
+      });
+    }
+
     addNotification(
       'Medical Ledger Sealed',
       `Dr. ${vet?.name || 'Vet'} diagnosed patient and posted medication dosages.`,
@@ -528,18 +768,19 @@ export const RescueProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     );
   };
 
-  const resolveCase = (caseId: string) => {
+  const resolveCase = async (caseId: string) => {
+    const update: CaseUpdate = {
+      id: `timeline-${Date.now()}`,
+      caseId,
+      status: 'Resolved',
+      title: 'Rescue Case Successfully Closed',
+      description: 'Animal is declared healthy. Wound healing successfully verified. Stray released back to active feed oversight or fully adopted.',
+      timestamp: 'Just now',
+      authorName: 'NGO Master Representative'
+    };
+
     setCases(prev => prev.map(c => {
       if (c.id === caseId) {
-        const update: CaseUpdate = {
-          id: `timeline-${Date.now()}`,
-          caseId,
-          status: 'Resolved',
-          title: 'Rescue Case Successfully Closed',
-          description: 'Animal is declared healthy. Wound healing successfully verified. Stray released back to active feed oversight or fully adopted.',
-          timestamp: 'Just now',
-          authorName: 'NGO Master Representative'
-        };
         return {
           ...c,
           status: 'Resolved',
@@ -548,6 +789,13 @@ export const RescueProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
       return c;
     }));
+
+    if (isSupabaseConfigured()) {
+      await safeUpdateSupabaseRecord('rescue_cases', caseId, {
+        status: 'Resolved',
+        timeline: [...(cases.find(c => c.id === caseId)?.timeline || []), update]
+      });
+    }
 
     addNotification(
       'Operation Finished Successfully',
@@ -586,6 +834,7 @@ export const RescueProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       requestGpsPermission,
       updateUserLocationDirectlyByLocality,
       reportNewRescueCase,
+      reportNewCase,
       assignResponderToCase,
       assignNgoToCase,
       assignFosterToCase,

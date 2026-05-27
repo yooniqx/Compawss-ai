@@ -213,13 +213,15 @@ export const RescueCommandView: React.FC<RescueCommandProps> = ({ onNavigate }) 
 
                   {/* Dynamic Source label Badge */}
                   <span className={`text-[8px] font-mono px-2 py-0.5 rounded-full border shrink-0 font-extrabold uppercase tracking-wider ${
-                    vet.source === 'Google' 
-                      ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' 
-                      : vet.source === 'Verified Database'
-                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25'
+                    vet.source === 'Verified' || vet.source === 'Verified Database'
+                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25' 
+                      : vet.source === 'Supabase Directory'
+                      ? 'bg-indigo-500/15 text-indigo-300 border-indigo-500/25'
+                      : vet.source === 'Google Places' || vet.source === 'Google'
+                      ? 'bg-sky-500/10 text-sky-400 border-sky-500/25'
                       : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
                   }`}>
-                    {vet.source === 'Demo' ? 'Demo Data' : vet.source || 'Demo Data'}
+                    {vet.source || 'Demo Data'}
                   </span>
                 </div>
 
@@ -281,13 +283,15 @@ export const RescueCommandView: React.FC<RescueCommandProps> = ({ onNavigate }) 
 
                   {/* NGO Source badge */}
                   <span className={`text-[8px] font-mono px-2 py-0.5 rounded-full border shrink-0 font-extrabold uppercase tracking-wider ${
-                    ngo.source === 'Google' 
-                      ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' 
-                      : ngo.source === 'Verified Database'
-                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25'
+                    ngo.source === 'Verified' || ngo.source === 'Verified Database'
+                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25' 
+                      : ngo.source === 'Supabase Directory'
+                      ? 'bg-indigo-500/15 text-indigo-300 border-indigo-500/25'
+                      : ngo.source === 'Google Places' || ngo.source === 'Google'
+                      ? 'bg-sky-500/10 text-sky-400 border-sky-500/25'
                       : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
                   }`}>
-                    {ngo.source === 'Demo' ? 'Demo Data' : ngo.source || 'Demo Data'}
+                    {ngo.source || 'Demo Data'}
                   </span>
                 </div>
 
