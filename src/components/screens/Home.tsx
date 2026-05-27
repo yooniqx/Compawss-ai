@@ -861,6 +861,7 @@ interface AIAssistantProps {
 }
 
 export const AIAssistantView: React.FC<AIAssistantProps> = ({ onNavigate }) => {
+  const { vets, ngos, userLocation, cases } = useRescue();
   const [messages, setMessages] = useState<Message[]>([
     {
       sender: 'ai',

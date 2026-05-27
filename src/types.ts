@@ -102,7 +102,7 @@ export interface NGO {
     cattle?: { current: number; max: number };
   };
   rating: number;
-  source?: 'Google' | 'Verified Database' | 'Demo';
+  source?: 'Google' | 'Verified Database' | 'Demo' | 'Google Places' | 'Supabase Directory' | 'Verified' | 'Demo Data' | string;
   openingStatus?: string;
   type?: string;
 }
@@ -118,7 +118,7 @@ export interface Vet {
   available24x7: boolean;
   emergencyVitalsMonitorCapable: boolean;
   image: string;
-  source?: 'Google' | 'Verified Database' | 'Demo';
+  source?: 'Google' | 'Verified Database' | 'Demo' | 'Google Places' | 'Supabase Directory' | 'Verified' | 'Demo Data' | string;
   openingStatus?: string;
   type?: string;
 }
