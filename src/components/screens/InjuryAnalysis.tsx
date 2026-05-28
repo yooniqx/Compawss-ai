@@ -45,6 +45,16 @@ import { Screen } from '../../types';
 import { CompawssLogo } from '../CompawssLogo';
 import { useRescue } from '../../context/RescueContext';
 import { uploadRescueImage } from '../../services/supabaseClient';
+import { 
+  checkBackendHealth, 
+  BACKEND_URL,
+  analyzeImage, 
+  classifyReport, 
+  computeSeverityScore, 
+  recommendAction, 
+  matchResponders, 
+  translateGuidance 
+} from '../../services/aiService';
 
 
 /* ==========================================================================
@@ -898,6 +908,8 @@ interface InjuryAnalysisProps {
 export const InjuryAnalysisView: React.FC<InjuryAnalysisProps> = ({ onNavigate }) => {
   const { reportNewCase, addNotification, userLocation } = useRescue();
   const [draft, setDraft] = useState<any>(null);
+  const [isBackendLive, setIsBackendLive] = useState<boolean | null>(null);
+  const [liveResults, setLiveResults] = useState<any>(null);
 
   
   // Custom tracking / scanning screens triggers
@@ -908,19 +920,62 @@ export const InjuryAnalysisView: React.FC<InjuryAnalysisProps> = ({ onNavigate }
   const [statusText, setStatusText] = useState('LOCKING SATELLITE COMMS');
   const [activeTab, setActiveTab] = useState<'details' | 'rules'>('details');
 
-  const severity = draft?.severity || 'Critical';
-  const selectedTags = draft?.tags || ['unknown condition'];
+  const severity = liveResults?.classRes?.severity || draft?.severity || 'Critical';
+  const selectedTags = liveResults?.classRes?.tags || draft?.tags || ['unknown condition'];
 
-  // Load draft data from local storage on mount
+  // Load draft data and execute AI service checks in parallel on mount
   useEffect(() => {
-    const raw = localStorage.getItem('compawss_active_draft');
-    if (raw) {
-      try {
-        setDraft(JSON.parse(raw));
-      } catch (e) {
-        setDraft(null);
+    async function initAnalysis() {
+      // 1. Diagnostics check: check if Python AI backend is live in direct non-blocking way
+      const live = await checkBackendHealth();
+      setIsBackendLive(live);
+
+      // Load local draft
+      const raw = localStorage.getItem('compawss_active_draft');
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw);
+          setDraft(parsed);
+
+          if (live) {
+            // Initiate backend calls safely, avoiding blocking main flow
+            try {
+              const mockImg = parsed.media?.url || "preset-url-image-base64";
+              const imgRes = await analyzeImage(mockImg, parsed.presetId);
+              const classRes = await classifyReport(parsed.transcription || parsed.notes || '', parsed.presetId);
+              
+              const hasBleed = parsed.tags?.includes('bleeding') || false;
+              const hasMobility = parsed.tags?.includes('unable to walk') || false;
+              const sevScoreRes = await computeSeverityScore(
+                parsed.presetId || 'dog',
+                parsed.tags || [],
+                hasBleed,
+                hasMobility,
+                parsed.notes || ''
+              );
+
+              const recRes = await recommendAction(
+                parsed.presetId || 'dog',
+                parsed.severity || 'Critical',
+                parsed.tags || []
+              );
+
+              setLiveResults({
+                imgRes,
+                classRes,
+                sevScoreRes,
+                recRes
+              });
+            } catch (err) {
+              console.warn("Dynamic API request returned error, using fallback state cleanly:", err);
+            }
+          }
+        } catch (e) {
+          setDraft(null);
+        }
       }
     }
+    initAnalysis();
   }, []);
 
   // Scanning counter loop simulation
@@ -972,8 +1027,15 @@ export const InjuryAnalysisView: React.FC<InjuryAnalysisProps> = ({ onNavigate }
     return `${mm}m ${ss < 10 ? `0${ss}` : ss}s`;
   };
 
-  // Safe fallback metadata block helper
-  const resolvedPresetData = draft?.presetId ? PRESETS[draft.presetId as 'dog' | 'kitten' | 'manual'] : PRESETS.dog;
+  // Safe fallback metadata block helper enriched by live Python AI responses when operational
+  const basePreset = draft?.presetId ? PRESETS[draft.presetId as 'dog' | 'kitten' | 'manual'] : PRESETS.dog;
+  const resolvedPresetData = {
+    ...basePreset,
+    confidence: liveResults?.imgRes?.confidence ?? basePreset.confidence,
+    anomalies: liveResults?.imgRes?.anomalies ?? basePreset.anomalies,
+    directives: liveResults?.recRes?.directives ?? basePreset.directives,
+    species: liveResults?.imgRes?.species ?? basePreset.species,
+  };
 
   // Render scan progress bar
   if (isScanning) {
@@ -1221,6 +1283,26 @@ export const InjuryAnalysisView: React.FC<InjuryAnalysisProps> = ({ onNavigate }
   return (
     <div className="flex-1 pb-32 overflow-y-auto w-full px-4 md:px-8 max-w-lg mx-auto pt-4 space-y-6 animate-in fade-in duration-300">
       
+      {/* Python AI Backend Connection Status Indicator */}
+      <div className="p-3.5 rounded-2xl bg-[#0c0c12] border border-white/5 flex items-center justify-between text-xs font-mono shadow-xl relative overflow-hidden">
+        <div className="absolute top-0 bottom-0 left-0 w-1.5 bg-gradient-to-b from-[#FF4E00] to-amber-500" />
+        <div className="pl-2 space-y-0.5">
+          <span className="text-[8.5px] uppercase text-[#cbc3d7]/40 block leading-none font-bold">PORT INTEGRATION DECK</span>
+          <span className="text-[#cbc3d7]/90 text-[10.5px] font-bold">Service Endpoint URL: <code className="text-cyan-400 font-mono text-[9px] bg-white/5 px-1 py-0.5 rounded">{BACKEND_URL || 'Not Configured'}</code></span>
+        </div>
+        {isBackendLive ? (
+          <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-green-500/10 border border-green-500/30 text-green-400 text-[8.5px] font-black uppercase tracking-wider">
+            <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+            Live AI / Backend Connected
+          </div>
+        ) : (
+          <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-[#FF4E00]/10 border border-[#FF4E00]/20 text-[#FF4E00] text-[8.5px] font-black uppercase tracking-wider">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#FF4E00]" />
+            Demo AI / Backend Offline
+          </div>
+        )}
+      </div>
+
       {/* Title */}
       <div className="flex items-center gap-2 border-b border-white/5 pb-2 text-left">
         <Cpu className="w-5 h-5 text-cyan-400 shrink-0" />
