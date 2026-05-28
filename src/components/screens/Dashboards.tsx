@@ -22,7 +22,7 @@ import {
   Mic
 } from 'lucide-react';
 import { Screen } from '../../types';
-import { ACTIVE_FOSTER, VOLUNTEER_MISSIONS, VOLUNTEER_COMMUNITY_FEED, MY_PETS } from '../../data';
+import { ACTIVE_FOSTER, VOLUNTEER_MISSIONS, VOLUNTEER_COMMUNITY_FEED, MY_PETS, getDemoMode } from '../../data';
 
 /* ==========================================================================
    1. FOSTER DASHBOARD
@@ -462,154 +462,171 @@ export const OwnerDashboardView: React.FC<OwnerDashboardProps> = ({ onNavigate }
         )}
       </div>
 
-      <div className="space-y-3 pl-1">
-        <span className="text-xs font-mono font-bold tracking-wider text-[#cbc3d7]/40 uppercase block text-left">
-          Your Reported Stray Incidents
-        </span>
-
-        {/* 1. Max Pet Detail wrapper repurposed as Stray Incident Case */}
-        <div className="rounded-2xl bg-[#1b1b20] border border-white/5 overflow-hidden shadow-2xl space-y-4">
-          <div className="h-52 relative">
-            <img 
-              src={maxPet.image} 
-              alt="Barnaby Stray Shih Tzu" 
-              className="w-full h-full object-cover select-none"
-              referrerPolicy="no-referrer"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-[#1b1b20] via-transparent to-transparent" />
-            
-            {/* Stable notification dot badge */}
-            <span className="absolute bottom-4 left-4 flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold tracking-wide bg-red-500/10 border border-red-500/20 text-red-400 backdrop-blur-md">
-              <span className="h-2 w-2 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
-              PRIORITY TRIAGE
+      {getDemoMode() && maxPet && lunaPet ? (
+        <>
+          <div className="space-y-3 pl-1">
+            <span className="text-xs font-mono font-bold tracking-wider text-[#cbc3d7]/40 uppercase block text-left flex items-center gap-2">
+              Your Reported Stray Incidents
+              <span className="inline-block text-[8px] font-mono font-black uppercase px-1.5 py-0.5 bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded">Demo Data</span>
             </span>
-          </div>
 
-          <div className="p-4 pt-0 space-y-4">
-            <div className="text-left space-y-0.5">
-              <h3 className="font-display font-black text-xl text-white">
-                Barnaby
-              </h3>
-              <p className="text-xs text-[#cbc3d7]/65 font-medium">
-                Male Shih Tzu stray • Found bleeding near Sector 4 Alleyway
-              </p>
+            {/* 1. Max Pet Detail wrapper repurposed as Stray Incident Case */}
+            <div className="rounded-2xl bg-[#1b1b20] border border-white/5 overflow-hidden shadow-2xl space-y-4">
+              <div className="h-52 relative">
+                <img 
+                  src={maxPet.image} 
+                  alt="Barnaby Stray Shih Tzu" 
+                  className="w-full h-full object-cover select-none"
+                  referrerPolicy="no-referrer"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-[#1b1b20] via-transparent to-transparent" />
+                
+                {/* Stable notification dot badge */}
+                <span className="absolute bottom-4 left-4 flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold tracking-wide bg-red-500/10 border border-red-500/20 text-red-400 backdrop-blur-md">
+                  <span className="h-2 w-2 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
+                  PRIORITY TRIAGE
+                </span>
+              </div>
+
+              <div className="p-4 pt-0 space-y-4">
+                <div className="text-left space-y-0.5">
+                  <h3 className="font-display font-black text-xl text-white">
+                    Barnaby
+                  </h3>
+                  <p className="text-xs text-[#cbc3d7]/65 font-medium">
+                    Male Shih Tzu stray • Found bleeding near Sector 4 Alleyway
+                  </p>
+                </div>
+
+                {/* Vitals insight card */}
+                <div className="p-4 rounded-xl bg-white/[0.01] border border-white/5 space-y-2 relative">
+                  <span className="text-[10px] font-mono uppercase text-[#4cd7f6] font-bold tracking-widest block text-left">
+                    EMERGENCY TELEMETRY PROFILE
+                  </span>
+                  <div className="grid grid-cols-2 gap-2 text-left text-xs text-[#cbc3d7]/80">
+                    <div>
+                      <span className="text-[10px] text-[#cbc3d7]/40 block font-mono">Heart Rate</span>
+                      <span className="font-bold text-white text-sm">145 bpm (Shock)</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-[#cbc3d7]/40 block font-mono">Mobility Risk</span>
+                      <span className="font-bold text-white text-sm">Severe Limping</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Button 1: View Full Report -> Injury Analysis (Disable for demo data) */}
+                <button
+                  disabled={true}
+                  className="w-full py-3.5 rounded-xl text-xs font-bold text-[#cbc3d7]/30 bg-white/5 border border-white/5 cursor-not-allowed flex items-center justify-center gap-1.5 shadow-lg"
+                >
+                  <span>View Full Report (Disabled - Demo Data)</span>
+                </button>
+              </div>
             </div>
 
-            {/* Vitals insight card */}
-            <div className="p-4 rounded-xl bg-white/[0.01] border border-white/5 space-y-2 relative">
-              <span className="text-[10px] font-mono uppercase text-[#4cd7f6] font-bold tracking-widest block text-left">
-                EMERGENCY TELEMETRY PROFILE
+            {/* 2. Luna Pet summary card repurposed as Calico stray progress */}
+            <div className="rounded-2xl bg-[#1b1b20] border border-white/5 p-5 shadow-2xl space-y-4">
+              <div className="flex justify-between items-start">
+                <div className="flex items-center gap-3">
+                  <img 
+                    src={lunaPet.image} 
+                    alt="Luna stray Calico" 
+                    className="w-12 h-12 object-cover rounded-xl border border-white/10"
+                    referrerPolicy="no-referrer"
+                  />
+                  <div className="text-left">
+                    <h4 className="font-display font-bold text-sm text-white">Calico Kitten</h4>
+                    <p className="text-[10px] text-[#cbc3d7]/65">Kitten Stray • Found shivering in rain</p>
+                  </div>
+                </div>
+
+                <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[9px] font-bold bg-[#4cd7f6]/10 text-[#4cd7f6]">
+                  <span className="h-1.5 w-1.5 rounded-full bg-[#4cd7f6] animate-pulse" />
+                  RECOVERY OBSERVATION
+                </span>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-white/[0.01] border border-white/5 space-y-1.5 text-left text-xs text-[#cbc3d7]">
+                <span className="text-[10px] font-mono uppercase font-bold text-[#cbc3d7]/45 tracking-widest">
+                  Rehabilitation Routine
+                </span>
+                <div>
+                  <span className="text-[10px] text-[#cbc3d7]/40 block leading-none">Vitals Observation</span>
+                  <span className="font-bold text-white">Daily Temperature Control Logs</span>
+                </div>
+              </div>
+
+              <button 
+                disabled={true}
+                className="w-full py-2.5 rounded-lg text-xs font-bold text-[#cbc3d7]/30 bg-white/5 border border-white/5 cursor-not-allowed"
+              >
+                Log Treatment Progress Update (Disabled - Demo Data)
+              </button>
+            </div>
+          </div>
+
+          {/* Upcoming Visits schedule timeline */}
+          <div className="space-y-3.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-mono text-[#cbc3d7]/40 uppercase tracking-widest pl-1 font-bold flex items-center gap-2">
+                Dispatched Admissions Milestones
+                <span className="inline-block text-[8px] font-mono font-black uppercase px-1.5 py-0.5 bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded">Demo Data</span>
               </span>
-              <div className="grid grid-cols-2 gap-2 text-left text-xs text-[#cbc3d7]/80">
-                <div>
-                  <span className="text-[10px] text-[#cbc3d7]/40 block font-mono">Heart Rate</span>
-                  <span className="font-bold text-white text-sm">145 bpm (Shock)</span>
+              <Calendar className="w-4.5 h-4.5 text-[#cbc3d7]/30" />
+            </div>
+
+            <div className="p-4 bg-[#1b1b20] border border-white/5 rounded-2xl relative space-y-4 text-xs">
+              <div className="absolute left-6 top-8 bottom-8 w-[1.5px] bg-[#d0bcff]/20" />
+
+              {/* Visit Item 1 */}
+              <div className="flex gap-4 relative">
+                <div className="h-4.5 w-4.5 shrink-0 rounded-full bg-[#d0bcff] flex items-center justify-center border-4 border-[#1b1b20] shadow-[0_0_8px_rgba(208,188,255,0.6)] z-10" />
+                <div className="space-y-1 text-left">
+                  <h4 className="font-bold text-white">Trauma Unit Specialist Admission</h4>
+                  <p className="text-[10px] text-[#d0bcff] font-semibold">Tomorrow, 10:00 AM</p>
+                  <p className="text-xs text-[#cbc3d7]/70">Barnaby follow-up limb assessment checkup.</p>
                 </div>
-                <div>
-                  <span className="text-[10px] text-[#cbc3d7]/40 block font-mono">Mobility Risk</span>
-                  <span className="font-bold text-white text-sm">Severe Limping</span>
+              </div>
+
+              {/* Visit Item 2 */}
+              <div className="flex gap-4 relative">
+                <div className="h-4.5 w-4.5 shrink-0 rounded-full bg-[#cbc3d7]/30 flex items-center justify-center border-4 border-[#1b1b20] z-10" />
+                <div className="space-y-1 text-left">
+                  <h4 className="font-bold text-[#cbc3d7]">Foster Placement Review</h4>
+                  <p className="text-[10px] text-[#cbc3d7]/50 font-semibold">Oct 24, 2:30 PM</p>
+                  <p className="text-xs text-[#cbc3d7]/60">Calico Stray placement clearance with authorized foster.</p>
                 </div>
               </div>
             </div>
-
-            {/* Button 1: View Full Report (xpath: //button[contains(., 'View Full Report')]) -> Injury Analysis */}
-            <button
-              onClick={() => onNavigate(Screen.InjuryAnalysis)}
-              className="w-full py-3.5 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-[#d0bcff] to-[#4cd7f6] hover:brightness-110 active:scale-95 transition flex items-center justify-center gap-1.5 cursor-pointer shadow-lg"
-            >
-              <span>View Full Report</span>
-            </button>
           </div>
-        </div>
 
-        {/* 2. Luna Pet summary card repurposed as Calico stray progress */}
-        <div className="rounded-2xl bg-[#1b1b20] border border-white/5 p-5 shadow-2xl space-y-4">
-          <div className="flex justify-between items-start">
+          {/* Nearby Alerts widget */}
+          <div className="rounded-2xl bg-gradient-to-r from-red-500/10 via-transparent to-transparent border border-white/5 p-4 flex items-center justify-between shadow-lg">
             <div className="flex items-center gap-3">
-              <img 
-                src={lunaPet.image} 
-                alt="Luna stray Calico" 
-                className="w-12 h-12 object-cover rounded-xl border border-white/10"
-                referrerPolicy="no-referrer"
-              />
-              <div className="text-left">
-                <h4 className="font-display font-bold text-sm text-white">Calico Kitten</h4>
-                <p className="text-[10px] text-[#cbc3d7]/65">Kitten Stray • Found shivering in rain</p>
+              <Bell className="w-5 h-5 text-red-400 animate-pulse" />
+              <div className="text-left space-y-0.5">
+                <h4 className="text-xs font-bold text-white flex items-center gap-2">
+                  Lost Beagle: "Charlie" Alert
+                  <span className="inline-block text-[8px] font-mono font-black uppercase px-1.5 py-0.5 bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded">Demo Data</span>
+                </h4>
+                <p className="text-[10px] text-[#cbc3d7]/60 font-medium">Near Sector 5 • Active Search Squad</p>
               </div>
             </div>
-
-            <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[9px] font-bold bg-[#4cd7f6]/10 text-[#4cd7f6]">
-              <span className="h-1.5 w-1.5 rounded-full bg-[#4cd7f6] animate-pulse" />
-              RECOVERY OBSERVATION
+            <span className="text-[9px] bg-red-400/20 text-red-400 font-mono font-bold px-2 py-0.5 rounded uppercase">
+              SOS ACTIVE
             </span>
           </div>
-
-          <div className="p-3.5 rounded-xl bg-white/[0.01] border border-white/5 space-y-1.5 text-left text-xs text-[#cbc3d7]">
-            <span className="text-[10px] font-mono uppercase font-bold text-[#cbc3d7]/45 tracking-widest">
-              Rehabilitation Routine
-            </span>
-            <div>
-              <span className="text-[10px] text-[#cbc3d7]/40 block leading-none">Vitals Observation</span>
-              <span className="font-bold text-white">Daily Temperature Control Logs</span>
-            </div>
-          </div>
-
-          <button 
-            onClick={() => alert("Treatment progress logs synced with NGO central veterinary queue.")}
-            className="w-full py-2.5 rounded-lg text-xs font-bold text-white bg-white/5 hover:bg-white/10 transition border border-white/10 cursor-pointer"
-          >
-            Log Treatment Progress Update
-          </button>
+        </>
+      ) : (
+        <div className="p-8 text-center rounded-2xl border border-dashed border-white/10 bg-white/[0.01]">
+          <Inbox className="w-10 h-10 text-white/20 mx-auto mb-2 animate-bounce" />
+          <h4 className="text-xs font-bold text-white font-mono uppercase tracking-wider">No active rescue incidents</h4>
+          <p className="text-[10.5px] text-[#cbc3d7]/60 max-w-xs mx-auto mt-1 leading-normal">
+            Your live reported incidents list is empty. Witness an emergency? Submit a localized rescue event to alert our coordinator grids.
+          </p>
         </div>
-      </div>
-
-      {/* Upcoming Visits schedule timeline */}
-      <div className="space-y-3.5">
-        <div className="flex items-center justify-between">
-          <span className="text-[10px] font-mono text-[#cbc3d7]/40 uppercase tracking-widest pl-1 font-bold">
-            Dispatched Admissions Milestones
-          </span>
-          <Calendar className="w-4.5 h-4.5 text-[#cbc3d7]/30" />
-        </div>
-
-        <div className="p-4 bg-[#1b1b20] border border-white/5 rounded-2xl relative space-y-4 text-xs">
-          <div className="absolute left-6 top-8 bottom-8 w-[1.5px] bg-[#d0bcff]/20" />
-
-          {/* Visit Item 1 */}
-          <div className="flex gap-4 relative">
-            <div className="h-4.5 w-4.5 shrink-0 rounded-full bg-[#d0bcff] flex items-center justify-center border-4 border-[#1b1b20] shadow-[0_0_8px_rgba(208,188,255,0.6)] z-10" />
-            <div className="space-y-1 text-left">
-              <h4 className="font-bold text-white">Trauma Unit Specialist Admission</h4>
-              <p className="text-[10px] text-[#d0bcff] font-semibold">Tomorrow, 10:00 AM</p>
-              <p className="text-xs text-[#cbc3d7]/70">Barnaby follow-up limb assessment checkup.</p>
-            </div>
-          </div>
-
-          {/* Visit Item 2 */}
-          <div className="flex gap-4 relative">
-            <div className="h-4.5 w-4.5 shrink-0 rounded-full bg-[#cbc3d7]/30 flex items-center justify-center border-4 border-[#1b1b20] z-10" />
-            <div className="space-y-1 text-left">
-              <h4 className="font-bold text-[#cbc3d7]">Foster Placement Review</h4>
-              <p className="text-[10px] text-[#cbc3d7]/50 font-semibold">Oct 24, 2:30 PM</p>
-              <p className="text-xs text-[#cbc3d7]/60">Calico Stray placement clearance with authorized foster.</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Nearby Alerts widget */}
-      <div className="rounded-2xl bg-gradient-to-r from-red-500/10 via-transparent to-transparent border border-white/5 p-4 flex items-center justify-between shadow-lg">
-        <div className="flex items-center gap-3">
-          <Bell className="w-5 h-5 text-red-400 animate-pulse" />
-          <div className="text-left space-y-0.5">
-            <h4 className="text-xs font-bold text-white">Lost Beagle: "Charlie" Alert</h4>
-            <p className="text-[10px] text-[#cbc3d7]/60 font-medium">Near Sector 5 • Active Search Squad</p>
-          </div>
-        </div>
-        <span className="text-[9px] bg-red-400/20 text-red-400 font-mono font-bold px-2 py-0.5 rounded uppercase">
-          SOS ACTIVE
-        </span>
-      </div>
+      )}
 
     </div>
   );

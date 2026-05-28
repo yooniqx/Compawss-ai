@@ -23,9 +23,11 @@ import {
   Camera
 } from 'lucide-react';
 import { Screen, StrayReport } from '../../types';
-import { NEARBY_ACTIVITY, NOTIFICATIONS_DATA, DASHBOARD_STATS } from '../../data';
+import { NEARBY_ACTIVITY, NOTIFICATIONS_DATA, DASHBOARD_STATS, getDemoMode } from '../../data';
 import { CompawssLogo } from '../CompawssLogo';
 import { useRescue, INDIAN_LOCALITIES } from '../../context/RescueContext';
+import { useChat } from '../../context/ChatContext';
+import { isSupabaseConfigured } from '../../services/supabaseClient';
 
 
 /* ==========================================================================
@@ -533,9 +535,11 @@ export const HomeView: React.FC<HomeProps> = ({ onNavigate }) => {
             {text.feedTitle}
             <span className="h-2 w-2 rounded-full bg-[#FF4E00] animate-pulse" />
           </h3>
-          <span className={`text-[10px] font-mono font-bold uppercase tracking-wider ${isLight ? 'text-[#C2410C]' : 'text-[#FF4E00]'}`}>
-            {text.feedLive}
-          </span>
+          {isSupabaseConfigured() && (
+            <span className={`text-[10px] font-mono font-bold uppercase tracking-wider ${isLight ? 'text-[#C2410C]' : 'text-[#FF4E00]'}`}>
+              {text.feedLive}
+            </span>
+          )}
         </div>
 
         <div className="space-y-3">
@@ -557,8 +561,11 @@ export const HomeView: React.FC<HomeProps> = ({ onNavigate }) => {
                     <Activity className="w-5 h-5 animate-pulse" />
                   </div>
                   <div className="space-y-0.5 min-w-0 flex-1">
-                    <h4 className={`text-xs font-black group-hover:text-white transition-colors leading-snug truncate ${isLight ? 'text-gray-900' : 'text-[#e4e1e9]'}`}>
+                    <h4 className={`text-xs font-black group-hover:text-white transition-colors leading-snug truncate flex items-center gap-1.5 ${isLight ? 'text-gray-900' : 'text-[#e4e1e9]'}`}>
                       {report.type}
+                      {getDemoMode() && (
+                        <span className="inline-block text-[7.5px] font-mono font-black uppercase px-1.5 py-0.5 bg-amber-500/25 text-amber-400 border border-amber-500/30 rounded">Demo Data</span>
+                      )}
                     </h4>
                     <p className={`text-[11px] block truncate ${isLight ? 'text-gray-600' : 'text-[#cbc3d7]/60'}`}>
                       {report.distance} • {report.timeAgo}
@@ -576,19 +583,23 @@ export const HomeView: React.FC<HomeProps> = ({ onNavigate }) => {
                 <div className="flex items-center gap-1.5 ml-0 min-[360px]:ml-2 shrink-0 self-end min-[360px]:self-auto">
                   <button 
                     onClick={() => {
+                      if (getDemoMode()) return;
                       if (report.id.includes('108')) {
                         onNavigate(Screen.InjuryAnalysis);
                       } else {
                         onNavigate(Screen.RescueCommand);
                       }
                     }}
+                    disabled={getDemoMode()}
                     className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition ${
-                      isLight 
-                        ? 'text-teal-700 bg-teal-50 border border-teal-200 hover:bg-teal-100 shadow-sm' 
-                        : 'text-[#00F2FF] bg-[#00F2FF]/10 border border-[#00F2FF]/20 hover:bg-[#00F2FF]/20'
+                      getDemoMode()
+                        ? 'bg-white/5 text-[#cbc3d7]/30 border border-white/5 cursor-not-allowed'
+                        : (isLight 
+                            ? 'text-teal-700 bg-teal-50 border border-teal-200 hover:bg-teal-100 shadow-sm' 
+                            : 'text-[#00F2FF] bg-[#00F2FF]/10 border border-[#00F2FF]/20 hover:bg-[#00F2FF]/20')
                     }`}
                   >
-                    {text.helpBtn}
+                    {getDemoMode() ? "Demo Locked" : text.helpBtn}
                   </button>
                   <button 
                     onClick={() => handleDismissAlert(report.id)}
@@ -616,7 +627,7 @@ export const HomeView: React.FC<HomeProps> = ({ onNavigate }) => {
       </div>
 
       {/* AI Overwatch / Watchman Directive Card */}
-      {showObservation && (
+      {getDemoMode() && showObservation && (
         <div className={`relative rounded-2xl border p-5 shadow-2xl overflow-hidden text-left ${
           isLight 
             ? 'bg-teal-50/95 border-teal-250 shadow-md' 
@@ -836,509 +847,318 @@ export const SOSView: React.FC<SOSProps> = ({ onNavigate }) => {
   );
 };
 
-/* ==========================================================================
-   4. AI ASSISTANT WATCHMAN
-   ========================================================================== */
-interface Message {
-  sender: 'ai' | 'user';
-  text: string;
-  options?: string[];
-  actions?: { label: string; onClick: () => void }[];
-}
-
-interface FlowState {
-  flow: 'idle' | 'reporting' | 'scanning' | 'vet' | 'language' | 'audio';
-  step: number;
-  reportInfo: {
-    condition?: string;
-    location?: string;
-    photoAttached?: boolean;
-  };
-}
-
 interface AIAssistantProps {
   onNavigate: (screen: Screen) => void;
 }
 
 export const AIAssistantView: React.FC<AIAssistantProps> = ({ onNavigate }) => {
   const { vets, ngos, userLocation, cases } = useRescue();
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      sender: 'ai',
-      text: 'Hello! I am your Compawss AI Rescue Co-pilot. I am here to help you report, coordinate, and track rescues of injured, lost, or vulnerable animals safely.\n\nType a question or select a quick action to begin coordination.',
-      options: ['What can this app do?', 'Report an injured animal', 'Find nearby rescuers']
-    }
-  ]);
+  const {
+    activeThreadId,
+    setActiveThreadId,
+    threads,
+    messages,
+    loading,
+    attachContext,
+    setAttachContext,
+    sendMessage,
+    clearChat,
+    newThread,
+  } = useChat();
+
   const [inputVal, setInputVal] = useState('');
-  const [lang, setLang] = useState<'en' | 'hi' | 'bn'>('en');
-  const [audioGuidance, setAudioGuidance] = useState(false);
-
-  const [flowState, setFlowState] = useState<FlowState>({
-    flow: 'idle',
-    step: 0,
-    reportInfo: {}
-  });
-
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
+  // Auto-scroll on new message arrivals or typing status change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [messages, loading]);
 
-  const generateResponse = (text: string, current: FlowState): { text: string; state: FlowState; options?: string[]; actions?: { label: string; onClick: () => void }[] } => {
-    const norm = text.toLowerCase().trim();
-
-    // 1. HELP / WHAT CAN THIS APP DO
-    if (
-      norm.includes('what can this app do') || 
-      norm.includes('what can this do') || 
-      norm.includes('features') || 
-      norm.includes('capabilities') || 
-      norm === 'help'
-    ) {
-      return {
-        text: "Compawss AI helps you report animals in distress using photo, video, voice, text, and location. It analyzes urgency, suggests safe next steps, connects cases to nearby rescuers, NGOs, vets, shelters, or volunteers, and helps track rescue progress until care is completed.",
-        state: { flow: 'idle', step: 0, reportInfo: {} },
-        options: ['Report an injured animal', 'Find nearby rescuers', 'Contact nearest vet']
-      };
-    }
-
-    // 2. REPORT EMERGENCY INITIATION
-    if (
-      norm.includes('report an injured animal') || 
-      norm.includes('report animal') || 
-      norm === 'report' || 
-      norm.includes('injured animal')
-    ) {
-      return {
-        text: "I will guide you step-by-step through submitting a rescue report. First, please describe the animal's condition (e.g., severe bleeding, fractured limb, unconscious, trapped) so we can assess the urgency level.",
-        state: { flow: 'reporting', step: 1, reportInfo: {} },
-        options: ['Severe Bleeding', 'Limping or Fracture Accents', 'Dehydrated and Weak', 'Trapped in Drain']
-      };
-    }
-
-    // 3. START VOICE SOS
-    if (
-      norm.includes('voice sos') || 
-      norm.includes('start voice') || 
-      norm === 'sos'
-    ) {
-      setTimeout(() => {
-        onNavigate(Screen.VoiceReporting);
-      }, 1400);
-      return {
-        text: "Opening Voice SOS transmission flow... Prepare to speak clear animal descriptions when the microphone turns on. This interface will send immediate GPS grids and transcribe audio.",
-        state: { flow: 'idle', step: 0, reportInfo: {} }
-      };
-    }
-
-    // 4. IMAGE AI SCAN TRIGGER
-    if (
-      norm.includes('upload photo') || 
-      norm.includes('photo scan') || 
-      norm.includes('ai scan') || 
-      norm.includes('upload photo for ai scan')
-    ) {
-      return {
-        text: "[Interactive Camera Scan Active]\nPlease select a sample case below to simulate an incoming photo attachment logic. This will analyze trauma severity using computer vision.",
-        state: { flow: 'scanning', step: 1, reportInfo: {} },
-        options: ['Simulate Canine Limb Injury', 'Simulate Feline Dehydration Photo', 'Cancel Scan']
-      };
-    }
-
-    // 5. FIND NEARBY RESCUERS
-    if (
-      norm.includes('find nearby') || 
-      norm.includes('rescuers') || 
-      norm.includes('nearby rescuers')
-    ) {
-      const ngoListText = ngos.length > 0 
-        ? ngos.slice(0, 3).map(n => `• ${n.name} (${n.type || 'Rescue Center'}) — ${n.address} [Source: ${n.source || 'Demo'}, Phone: ${n.contact}]`).join('\n')
-        : '• No active local animal NGOs detected in this locality quadrant.';
-
-      return {
-        text: `Scanning local ${userLocation.name} coordinates for active NGO field units and animal shelters...\n\n📍 VERIFIED LOCAL SHELTER ORGANIZATIONS:\n${ngoListText}`,
-        state: { flow: 'idle', step: 0, reportInfo: {} },
-        actions: [
-          { label: 'View Rescue Command Map', onClick: () => onNavigate(Screen.RescueCommand) },
-          { label: 'Open NGO Logistics Hub', onClick: () => onNavigate(Screen.NGODashboard) }
-        ]
-      };
-    }
-
-    // 6. CONTACT NEAREST VET
-    if (
-      norm.includes('contact nearest vet') || 
-      norm.includes('nearest vet') || 
-      norm === 'vet'
-    ) {
-      const vetListText = vets.length > 0
-        ? vets.slice(0, 3).map(v => `• ${v.clinicName} (${v.name}) — ${v.distance}, ${v.openingStatus || 'Active now'} [Source: ${v.source || 'Demo'}, Phone: ${v.contact}]`).join('\n')
-        : '• No active veterinary clinics found within scan radius.';
-
-      return {
-        text: `Fetching local veterinary clinics equipped for emergency diagnostics near ${userLocation.name}:\n\n🏥 TELEPHONY / EMERGENCY DIRECTORY:\n${vetListText}\n\nWould you like to place a simulated call directly or map coordinates?`,
-        state: { flow: 'vet', step: 1, reportInfo: {} },
-        options: ['Place Call: Closest Clinic', 'Map Clinics Locations Overlay']
-      };
-    }
-
-    // 7. TRACK ACTIVE RESCUE
-    if (
-      norm.includes('track active rescue') || 
-      norm.includes('track') || 
-      norm.includes('active rescue')
-    ) {
-      const caseListText = cases.length > 0
-        ? cases.slice(0, 2).map(c => `• Case ${c.id} (${c.animalProfile.species} / ${c.animalProfile.breed}): Sighted at ${c.location} (${c.distance}) — Status: [${c.status}]`).join('\n')
-        : '• No active priority dispatch missions registered in your overwatch zone.';
-
-      return {
-        text: `Verified dispatch missions currently in coordination near ${userLocation.city}:\n\n🔍 LIVE OPERATIONS DIRECTORIES:\n${caseListText}\n\nUse the buttons below to load full tactical tracking widgets:`,
-        state: { flow: 'idle', step: 0, reportInfo: {} },
-        actions: [
-          { label: 'Open Volunteer Directives Board', onClick: () => onNavigate(Screen.VolunteerDashboard) },
-          { label: 'Open Primary Map Engine', onClick: () => onNavigate(Screen.RescueCommand) }
-        ]
-      };
-    }
-
-    // 8. CHANGE LANGUAGE
-    if (
-      norm.includes('change language') || 
-      norm === 'language'
-    ) {
-      return {
-        text: "Compawss AI supports localized communication dialects. Please choose your preferences below:",
-        state: { flow: 'language', step: 1, reportInfo: {} },
-        options: ['English (EN)', 'Hindi (हिन्दी)', 'Bengali (বাংলা)']
-      };
-    }
-
-    // 9. ENABLE AUDIO GUIDANCE
-    if (
-      norm.includes('enable audio') || 
-      norm.includes('audio guidance') || 
-      norm === 'audio'
-    ) {
-      return {
-        text: "Audio guidance reads instructions, safe triage procedures, and alert priorities loud enough to assist rescuers in high-stress outdoor environments. Turn it on?",
-        state: { flow: 'audio', step: 1, reportInfo: {} },
-        options: ['Turn ON Audio Guidance', 'Keep Audio Guidance OFF']
-      };
-    }
-
-    // IN-FLOW STATE HANDLERS
-    if (current.flow === 'reporting') {
-      const { step, reportInfo } = current;
-      if (step === 1) {
-        return {
-          text: `Logged condition description: "${text}".\n\nNext, please provide the location or landmark where the animal is located so rescuers can find it (e.g. "Sector 4 Alleyway near Bank").`,
-          state: { flow: 'reporting', step: 2, reportInfo: { ...reportInfo, condition: text } },
-          options: ['Use Current Location Coordinates', 'Sector 4 Corner Market', 'East Bypass Highway']
-        };
-      } else if (step === 2) {
-        return {
-          text: `Logged location landmarks: "${text}".\n\nLastly, do you have a photo of the animal? Adding a photo enables quick AI triage analysis and lets emergency responders identify the animal in the field.`,
-          state: { flow: 'reporting', step: 3, reportInfo: { ...reportInfo, location: text } },
-          options: ['Simulate Photo Attachment', 'Skip Photo & Review']
-        };
-      } else if (step === 3) {
-        const attach = norm.includes('simulate') || norm.includes('attachment') || norm.includes('photo');
-        const complete = { ...reportInfo, photoAttached: attach };
-        const reviewText = `📝 REPORT SUMMARY FOR SUBMISSION:\n• Animal Condition: ${complete.condition}\n• Search Coordinates: ${complete.location}\n• Vision Diagnosis: ${complete.photoAttached ? 'Canine Trauma Photo Attached' : 'None'}`;
-        
-        return {
-          text: `${reviewText}\n\nReady to finalize this emergency dispatch report? Click submit below to alert nearby rescuers.`,
-          state: { flow: 'reporting', step: 4, reportInfo: complete },
-          options: ['🚀 SUBMIT RESCUE REPORT NOW', '❌ Discard Report']
-        };
-      } else if (step === 4) {
-        if (norm.includes('submit') || norm.includes('report now') || norm.includes('rocket')) {
-          return {
-            text: `🚨 EMERGENCY RESCUE REPORT SUBMITTED!\n\n• Case ID: CPW-2026-7782\n• Status: Alert Broadcast Sent & Responders Notified\n• Assigned Rescuers: Mobile Volunteer Vet Unit Alpha-7\n• Estimated Arrival Time (ETA): 12 minutes\n• Live Status Tracking Link: [Track Case File Details](https://ais-dev-ly5a3ozapsnkntgpagavx2-841250886780.asia-east1.run.app)\n\nWe are monitoring this incident closely. You can track progress on the live map.`,
-            state: { flow: 'idle', step: 0, reportInfo: {} },
-            actions: [
-              { label: 'Track on Command Map', onClick: () => onNavigate(Screen.RescueCommand) }
-            ]
-          };
-        } else {
-          return {
-            text: "Report draft discarded. Let me know what else I can coordinate for you.",
-            state: { flow: 'idle', step: 0, reportInfo: {} }
-          };
-        }
-      }
-    }
-
-    if (current.flow === 'scanning') {
-      if (norm.includes('canine') || norm.includes('limb') || norm.includes('injury')) {
-        return {
-          text: "📸 [AI COMPUTER VISION INSTANT SCAN]\n• Species Identified: Canine (Stray Dog)\n• Severity Assessment: HIGH RISK (Visible limb laceration & blood loss)\n• Immediate Triage Advice: Secure from major roads and highways. Give water if conscious. Keep still.\n\nCoordinates locked. Prompt to file this as a certified rescue report?",
-          state: { flow: 'reporting', step: 4, reportInfo: { condition: 'Stray dog with high-risk limb laceration', location: 'GPS Live Diagnostic Captured', photoAttached: true } },
-          options: ['🚀 SUBMIT RESCUE REPORT NOW', '❌ Cancel Scan']
-        };
-      } else if (norm.includes('feline') || norm.includes('dehydration') || norm.includes('cat')) {
-        return {
-          text: "📸 [AI COMPUTER VISION INSTANT SCAN]\n• Species Identified: Feline (Cat)\n• Severity Assessment: MODERATE RISK (Weakness, lethargy & dehydration)\n• Immediate Triage Advice: Place an easily accessible container of fresh water nearby. Provide ambient shelter out of intense sunlight.\n\nCoordinates locked. Prompt to file this as a certified rescue report?",
-          state: { flow: 'reporting', step: 4, reportInfo: { condition: 'Dehydrated feline with acute fatigue symptoms', location: 'GPS Live Diagnostic Captured', photoAttached: true } },
-          options: ['🚀 SUBMIT RESCUE REPORT NOW', '❌ Cancel Scan']
-        };
-      } else {
-        return {
-          text: "Visual computer-vision scan session ended. What other assistance is needed?",
-          state: { flow: 'idle', step: 0, reportInfo: {} }
-        };
-      }
-    }
-
-    if (current.flow === 'vet') {
-      if (norm.includes('call') || norm.includes('closest')) {
-        const nearestVet = vets[0];
-        const clinicName = nearestVet ? nearestVet.clinicName : "Crown Veterinary Hospital";
-        const phone = nearestVet ? nearestVet.contact : "+91 22 6123 0000";
-        const sourceLabel = nearestVet ? nearestVet.source || 'Demo' : 'Demo';
-        return {
-          text: `📞 [Placing Call...] Connecting you to ${clinicName} (${phone}) [Source: ${sourceLabel}]. Make sure to state your emergency sector: "${userLocation.name}" clearly upon connection.`,
-          state: { flow: 'idle', step: 0, reportInfo: {} }
-        };
-      } else {
-        setTimeout(() => {
-          onNavigate(Screen.RescueCommand);
-        }, 1000);
-        return {
-          text: "Opening map overlays to locate active partner veterinary clinics nearby...",
-          state: { flow: 'idle', step: 0, reportInfo: {} }
-        };
-      }
-    }
-
-    if (current.flow === 'language') {
-      if (norm.includes('hindi') || norm.includes('हिन्दी')) {
-        setLang('hi');
-        return {
-          text: "भाषा बदलकर हिंदी कर दी गई है। सुरक्षित बचाव सहायता के लिए आपका स्वागत है।",
-          state: { flow: 'idle', step: 0, reportInfo: {} }
-        };
-      } else if (norm.includes('bengali') || norm.includes('বাংলা')) {
-        setLang('bn');
-        return {
-          text: "ভাষা সফলভাবে বাংলায় পরিবর্তন করা হয়েছে। উদ্ধার কার্যে স্বাগতম।",
-          state: { flow: 'idle', step: 0, reportInfo: {} }
-        };
-      } else {
-        setLang('en');
-        return {
-          text: "Language was updated to English successfully. How can Compawss assist you further?",
-          state: { flow: 'idle', step: 0, reportInfo: {} }
-        };
-      }
-    }
-
-    if (current.flow === 'audio') {
-      if (norm.includes('on') || norm.includes('turn on')) {
-        setAudioGuidance(true);
-        return {
-          text: "Audio Guidance has been activated successfully. Compawss AI will speak critical procedures during diagnostic scanning.",
-          state: { flow: 'idle', step: 0, reportInfo: {} }
-        };
-      } else {
-        setAudioGuidance(false);
-        return {
-          text: "Audio Guidance disabled. Quiet mode restores.",
-          state: { flow: 'idle', step: 0, reportInfo: {} }
-        };
-      }
-    }
-
-    // Default Fallback Response (no jargon, practical helper)
-    return {
-      text: "I am ready. I can help you report an injured animal, find rescuers, get veterinary contacts, or check active rescues. What action should we take first?",
-      state: { flow: 'idle', step: 0, reportInfo: {} },
-      options: ['What can this app do?', 'Report an injured animal', 'Find nearby rescuers']
-    };
-  };
-
-  const processMessage = (text: string) => {
-    if (!text.trim()) return;
-
-    // Add user message
-    setMessages((prev) => [...prev, { sender: 'user', text }]);
-
-    // Remove active interactive options from previous AI message before adding the new user message
-    setMessages((prev) => 
-      prev.map((msg, idx) => {
-        if (idx === prev.length - 1) {
-          return { ...msg, options: undefined };
-        }
-        return msg;
-      })
-    );
-
-    setTimeout(() => {
-      const response = generateResponse(text, flowState);
-      
-      setFlowState(response.state);
-      setMessages((prev) => [
-        ...prev,
-        {
-          sender: 'ai',
-          text: response.text,
-          options: response.options,
-          actions: response.actions
-        }
-      ]);
-    }, 600);
-  };
-
-  const sendMsg = () => {
+  const sendMsg = async () => {
     if (!inputVal.trim()) return;
     const txt = inputVal;
     setInputVal('');
-    processMessage(txt);
+    await sendMessage(txt);
   };
 
-  const handleQuickAction = (label: string) => {
-    processMessage(label);
+  const handleQuickAction = async (label: string) => {
+    await sendMessage(label);
   };
 
   const QUICK_ACTIONS = [
     { label: 'Report an injured animal', desc: 'Assess symptoms & alert units', icon: <Activity className="w-3.5 h-3.5 text-[#FF4E00]" /> },
-    { label: 'Start Voice SOS', desc: 'Real-time audio telemetry SOS', icon: <Mic className="w-3.5 h-3.5 text-[#FF4E00]" /> },
-    { label: 'Upload photo for AI scan', desc: 'Computer vision wound triage', icon: <Camera className="w-3.5 h-3.5 text-[#00F2FF]" /> },
-    { label: 'Find nearby rescuers', desc: 'NGO units in your sector grid', icon: <MapPin className="w-3.5 h-3.5 text-[#00F2FF]" /> },
-    { label: 'Contact nearest vet', desc: 'Dial verified partner pet hospitals', icon: <Info className="w-3.5 h-3.5 text-[#00F2FF]" /> },
+    { label: 'Emergency Vet List', desc: 'Surgical center directory lists', icon: <Info className="w-3.5 h-3.5 text-[#00F2FF]" /> },
+    { label: 'NGO Standby Rescuers', desc: 'NGO dispatch squads nearby', icon: <MapPin className="w-3.5 h-3.5 text-[#00F2FF]" /> },
     { label: 'Track active rescue', desc: 'Live ETA for ongoing operations', icon: <Compass className="w-3.5 h-3.5 text-[#FF4E00]" /> },
-    { label: 'Change language', desc: 'Toggle dialects instantly', icon: <Smile className="w-3.5 h-3.5 text-[#00F2FF]" /> },
-    { label: 'Enable audio guidance', desc: 'Talkback voice triage feedback', icon: <Sparkles className="w-3.5 h-3.5 text-[#FF4E00]" /> },
+  ];
+
+  // Helper to parse simple bold texts, bullets & emojis cleanly for pristine GPT formatting
+  const renderMessageText = (text: string) => {
+    return text.split('\n').map((line, idx) => {
+      const trimmed = line.trim();
+      if (!trimmed) return <div key={idx} className="h-2" />;
+
+      // Match bold pattern **bold**
+      const parts = line.split('**');
+      const formattedParts = parts.map((part, pIdx) => {
+        if (pIdx % 2 === 1) {
+          return <strong key={pIdx} className="font-extrabold text-[#00F2FF]">{part}</strong>;
+        }
+        return part;
+      });
+
+      // Special styling for key bullet items to establish rhythm & alignment
+      if (trimmed.startsWith('•') || trimmed.startsWith('-')) {
+        const bulletText = trimmed.startsWith('•') ? trimmed.replace(/^•\s*/, '') : trimmed.replace(/^-\s*/, '');
+        const itemParts = bulletText.split('**');
+        const formattedItem = itemParts.map((p, pIdx) => {
+          if (pIdx % 2 === 1) {
+            return <strong key={pIdx} className="font-bold text-[#FF4E00]">{p}</strong>;
+          }
+          return p;
+        });
+
+        return (
+          <div key={idx} className="flex items-start gap-2 pl-3 my-1">
+            <span className="text-[#FF4E00] text-xs font-bold leading-relaxed">•</span>
+            <span className="text-xs text-[#E1E1E6]/90 font-sans leading-relaxed flex-1">{formattedItem}</span>
+          </div>
+        );
+      }
+
+      // Large subheader tags
+      if (trimmed.startsWith('🚨') || trimmed.startsWith('🏥') || trimmed.startsWith('🏢') || trimmed.startsWith('💡') || trimmed.startsWith('⚠️')) {
+        return (
+          <h4 key={idx} className="text-xs font-bold uppercase tracking-wider text-white border-b border-white/5 pb-1 mt-3 mb-1.5 font-sans flex items-center gap-1.5 select-none text-left">
+            {formattedParts}
+          </h4>
+        );
+      }
+
+      return (
+        <p key={idx} className="text-xs text-[#E1E1E6] leading-relaxed font-sans mb-1.5 text-left whitespace-pre-wrap select-text break-words">
+          {formattedParts}
+        </p>
+      );
+    });
+  };
+
+  // Human friendly relative time format
+  const formatTime = (isoString?: string) => {
+    if (!isoString) return '';
+    try {
+      const date = new Date(isoString);
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } catch (e) {
+      return '';
+    }
+  };
+
+  const THREAD_TABS = [
+    { id: 'general', label: 'Co-Pilot', icon: <Sparkles className="w-3.5 h-3.5" /> },
+    { id: 'case', label: 'Case Desk', icon: <Layers className="w-3.5 h-3.5" /> },
+    { id: 'scan', label: 'Vision Triage', icon: <Camera className="w-3.5 h-3.5" /> },
+    { id: 'coord', label: 'Dispatch', icon: <Compass className="w-3.5 h-3.5" /> },
   ];
 
   return (
-    <div className="flex-1 pb-32 overflow-hidden w-full px-4 md:px-6 max-w-md md:max-w-xl mx-auto pt-4 animate-in fade-in duration-300 flex flex-col justify-between" style={{ minHeight: 'calc(100vh - 150px)' }}>
+    <div className="flex-1 pb-32 overflow-hidden w-full px-4 md:px-6 max-w-md md:max-w-2xl mx-auto pt-4 animate-in fade-in duration-300 flex flex-col justify-between" style={{ minHeight: 'calc(100vh - 140px)' }}>
       
-      <div className="flex-1 flex flex-col overflow-hidden min-h-[400px]">
-        {/* Banner header of humanitarian rescue pilot */}
-        <div className="p-4 rounded-2xl bg-[#0C0F16] border border-white/10 relative overflow-hidden flex items-center justify-between shadow-xl mb-4">
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Real-time persistence banner */}
+        <div className="p-4 rounded-2xl bg-[#090B10] border border-white/10 relative overflow-hidden flex items-center justify-between shadow-xl mb-4">
           <div className="space-y-0.5">
             <div className="flex items-center gap-1.5">
               <span className="h-1.5 w-1.5 rounded-full bg-green-400 animate-ping" />
-              <span className="text-[10px] font-mono tracking-widest text-[#00F2FF] uppercase font-bold">COMPAWSS CO-PILOT ACTIVE</span>
+              <span className="text-[10px] font-mono tracking-widest text-[#00F2FF] uppercase font-bold">COMPAWSS CO-PILOT GLOBAL SESSION</span>
             </div>
-            <h3 className="font-display font-black text-sm text-white">Rescue Overwatch Desk</h3>
-            <p className="text-[9.5px] text-[#cbc3d7]/60">Humanitarian animal support assistant</p>
+            <h3 className="font-display font-black text-sm text-white flex items-center gap-1">
+              Rescue Sentinel Overwatch
+            </h3>
+            <p className="text-[9.5px] text-[#cbc3d7]/60 font-mono">
+              Thread: <span className="text-[#00F2FF] uppercase font-bold">{threads[activeThreadId]?.name || 'Sentinel Active'}</span>
+            </p>
           </div>
-          <CompawssLogo size={34} animate={true} className="filter drop-shadow-[0_0_8px_rgba(255,184,0,0.25)]" />
+          <CompawssLogo size={34} animate={loading} className="filter drop-shadow-[0_0_8px_rgba(255,184,0,0.25)]" />
         </div>
 
-        {/* Global toggles info card */}
-        {(audioGuidance || lang !== 'en') && (
-          <div className="mb-3 px-3.5 py-2 rounded-xl bg-white/[0.02] border border-white/5 flex flex-wrap gap-2 text-[9.5px] text-[#00F2FF] font-mono justify-between">
-            {lang !== 'en' && <span>Locale: {lang === 'hi' ? 'Hindi (हिन्दी)' : 'Bengali (বাংলা)'}</span>}
-            {audioGuidance && <span className="flex items-center gap-1">🗣️ Voice Guidance On</span>}
+        {/* Categories navigation selector */}
+        <div className="flex items-center gap-1 overflow-x-auto pb-2 mb-3 border-b border-white/5 scrollbar-none select-none">
+          {THREAD_TABS.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveThreadId(tab.id)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition whitespace-nowrap cursor-pointer ${
+                activeThreadId === tab.id
+                  ? 'bg-[#00F2FF]/15 border border-[#00F2FF]/30 text-[#00F2FF] shadow-sm'
+                  : 'bg-white/[0.02] border border-white/5 text-white/50 hover:bg-white/[0.05] hover:text-white'
+              }`}
+            >
+              {tab.icon}
+              <span>{tab.label}</span>
+              {threads[tab.id]?.messages.length > 1 && (
+                <span className="h-1.5 w-1.5 rounded-full bg-[#FF4E00]" />
+              )}
+            </button>
+          ))}
+        </div>
+
+        {/* Dynamic Context Widget & Local Memory Panel */}
+        {attachContext && (
+          <div className="mb-3 p-3 rounded-xl bg-white/[0.01] border border-white/5 text-[9.5px] text-[#00F2FF] font-mono space-y-1 block max-h-[85px] overflow-y-auto select-none">
+            <div className="flex items-center justify-between text-[#cbc3d7]/50 font-bold border-b border-white/5 pb-0.5 mb-1">
+              <span>ATTACHED ACTIVE TELEMETRY CONTEXT</span>
+              <span className="text-[#00F2FF] animate-pulse">● LOADED</span>
+            </div>
+            <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
+              <span>📍 GPS Location: <strong className="text-white font-sans">{userLocation.name || 'Mumbai Grid'}</strong></span>
+              <span>🏥 Vets Scanned: <strong className="text-white font-sans">{vets.length} verified</strong></span>
+              <span>🏢 Call Shelters: <strong className="text-white font-sans">{ngos.length} standby</strong></span>
+              <span>🐕 Active Cases: <strong className="text-white font-sans">{cases.length} cases</strong></span>
+            </div>
           </div>
         )}
 
-        {/* Chat message threads */}
-        <div className="flex-1 overflow-y-auto pr-1 space-y-4 mb-4 scrollbar-thin scrollbar-thumb-white/10 scroll-smooth">
-          {messages.map((m, idx) => (
+        {/* GPT-Style Conversations thread view container */}
+        <div className="flex-1 overflow-y-auto pr-1 space-y-4 mb-4 scrollbar-thin scrollbar-thumb-white/10 scroll-smooth flex flex-col min-h-[160px] max-h-[460px]">
+          {messages.map((m) => (
             <div 
-              key={idx}
+              key={m.id}
               className={`flex items-start gap-2.5 w-full ${m.sender === 'user' ? 'justify-end' : 'justify-start'}`}
             >
               {m.sender === 'ai' && (
                 <div className="h-8 w-8 rounded-lg bg-[#00F2FF]/10 flex items-center justify-center shrink-0 border border-[#00F2FF]/25 overflow-hidden">
-                  <CompawssLogo size={20} />
+                  <CompawssLogo size={20} animate={loading} />
                 </div>
               )}
-              <div className="max-w-[85%] sm:max-w-[75%] flex flex-col items-stretch">
+              <div className="max-w-[85%] sm:max-w-[78%] flex flex-col items-stretch">
                 <div 
-                  className={`rounded-2xl px-4 py-3 text-xs leading-relaxed shadow-md break-words overflow-hidden whitespace-pre-wrap ${
+                  className={`rounded-2xl px-4 py-3 shadow-lg relative break-words select-text ${
                     m.sender === 'user'
-                      ? 'bg-[#FF4E00]/15 border border-[#FF4E00]/30 text-white rounded-tr-none'
-                      : 'bg-[#12121A] border border-white/10 text-white rounded-tl-none'
+                      ? 'bg-[#FF4E00]/10 border border-[#FF4E00]/30 text-white rounded-tr-none'
+                      : 'bg-[#0E1017] border border-white/10 text-white rounded-tl-none'
                   }`}
                 >
-                  <p className="font-sans leading-normal">{m.text}</p>
-
-                  {/* Actions inside individual message card */}
-                  {m.actions && m.actions.length > 0 && (
-                    <div className="flex flex-col gap-1.5 mt-2.5 pt-2 border-t border-white/5">
-                      {m.actions.map((act, aIdx) => (
-                        <button
-                          key={aIdx}
-                          onClick={act.onClick}
-                          className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold text-white bg-[#FF4E00]/20 border border-[#FF4E00]/30 hover:bg-[#FF4E00]/30 active:scale-95 transition cursor-pointer"
-                        >
-                          <span>{act.label}</span>
-                          <ArrowRight className="w-3 h-3 text-[#FF4E00]" />
-                        </button>
-                      ))}
+                  {/* Co-Pilot Live / Demo Indicators */}
+                  {m.sender === 'ai' && (
+                    <div className="absolute top-2 right-3 select-none flex items-center">
+                      {m.isDemo ? (
+                        <span className="text-[8px] uppercase tracking-wider font-mono font-bold bg-yellow-400/10 border border-yellow-400/30 text-yellow-300 px-1.5 py-0.5 rounded">
+                          ⚠️ Demo AI
+                        </span>
+                      ) : (
+                        <span className="text-[8px] uppercase tracking-wider font-mono font-bold bg-[#00F2FF]/15 border border-[#00F2FF]/40 text-[#00F2FF] px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                          ⚡ Live Co-Pilot
+                        </span>
+                      )}
                     </div>
                   )}
-                </div>
 
-                {/* Sub-options below the latest message block */}
-                {m.options && m.options.length > 0 && (
-                  <div className="flex flex-col gap-1.5 mt-2 max-w-full">
-                    {m.options.map((opt, oIdx) => (
-                      <button
-                        key={oIdx}
-                        onClick={() => processMessage(opt)}
-                        className="w-full text-left px-3 py-2 rounded-xl text-[11px] font-bold text-[#00F2FF] bg-[#00F2FF]/5 border border-[#00F2FF]/15 hover:bg-[#00F2FF]/15 hover:border-[#00F2FF]/35 active:scale-95 transition break-words whitespace-normal font-sans cursor-pointer leading-tight shadow-sm"
-                      >
-                        {opt}
-                      </button>
-                    ))}
+                  {/* Render content */}
+                  <div className="space-y-1 pt-1">
+                    {renderMessageText(m.text)}
                   </div>
-                )}
+
+                  {/* Bubble timestamp footer */}
+                  <div className="w-full text-right mt-1.5 text-[8.5px] text-[#cbc3d7]/30 font-mono tracking-wide select-none">
+                    {formatTime(m.timestamp)}
+                  </div>
+                </div>
               </div>
             </div>
           ))}
+
+          {/* Typing Loading feedback bubble placeholder */}
+          {loading && (
+            <div className="flex items-start gap-2.5 w-full justify-start animate-pulse">
+              <div className="h-8 w-8 rounded-lg bg-[#00F2FF]/10 flex items-center justify-center shrink-0 border border-[#00F2FF]/25 overflow-hidden">
+                <CompawssLogo size={20} animate={true} />
+              </div>
+              <div className="max-w-[75%] rounded-2xl px-4 py-3 bg-[#090B10] border border-white/5 text-white rounded-tl-none">
+                <div className="flex gap-1.5 items-center justify-center py-1">
+                  <span className="h-1.5 w-1.5 rounded-full bg-[#00F2FF] animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <span className="h-1.5 w-1.5 rounded-full bg-[#00F2FF] animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <span className="h-1.5 w-1.5 rounded-full bg-[#00F2FF] animate-bounce" style={{ animationDelay: '300ms' }} />
+                  <span className="text-[9px] uppercase font-bold font-mono tracking-widest text-[#00F2FF]/75 ml-1">Compawss is triaging...</span>
+                </div>
+              </div>
+            </div>
+          )}
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Quick helper triggers list requested */}
-        <div className="border-t border-white/5 pt-4 space-y-2.5 max-h-[180px] overflow-y-auto pr-1">
-          <span className="text-[10px] uppercase font-bold tracking-widest text-[#FF4E00] block pl-1 font-mono">
-            Rescue Macro Shortcuts
-          </span>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 w-full">
-            {QUICK_ACTIONS.map((action, actionIdx) => (
-              <button
-                key={actionIdx}
-                onClick={() => handleQuickAction(action.label)}
-                className="w-full flex items-center justify-between p-2.5 rounded-xl bg-[#090A0F] border border-white/5 hover:border-[#FF4E00]/40 hover:bg-[#FF4E00]/5 transition duration-150 cursor-pointer text-left min-w-0"
-              >
-                <div className="flex items-center gap-2 min-w-0">
-                  <div className="shrink-0">{action.icon}</div>
-                  <div className="min-w-0">
-                    <span className="text-[11px] font-bold text-white block truncate leading-tight">
-                      {action.label}
-                    </span>
-                    <span className="text-[9px] text-[#cbc3d7]/50 block truncate leading-none mt-0.5 font-sans">
-                      {action.desc}
-                    </span>
-                  </div>
-                </div>
-              </button>
-            ))}
+        {/* Context Toggles Row & Clear Chat */}
+        <div className="flex items-center justify-between py-1 border-t border-b border-white/5 bg-white/[0.01] px-2 rounded-xl mb-3 select-none">
+          <button
+            onClick={() => setAttachContext(!attachContext)}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+              attachContext
+                ? 'bg-[#00F2FF]/15 text-[#00F2FF] border border-[#00F2FF]/35'
+                : 'bg-white/5 text-white/40 hover:bg-white/10'
+            }`}
+          >
+            📎 {attachContext ? 'Report Context Linked' : 'Link Active Report'}
+          </button>
+          
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => clearChat(activeThreadId)}
+              className="px-2 py-1 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-[10px] uppercase font-bold text-white/60 hover:text-white transition cursor-pointer"
+            >
+              Clear Logs
+            </button>
+            <button
+              onClick={() => newThread(activeThreadId)}
+              className="px-2 py-1 bg-[#FF4E00]/10 hover:bg-[#FF4E00]/20 border border-[#FF4E00]/30 rounded-lg text-[10px] uppercase font-bold text-[#FF4E00] hover:text-[#FF4E00]/90 transition cursor-pointer"
+            >
+              New Thread
+            </button>
           </div>
         </div>
+
+        {/* Shortcuts / Quick Suggestion Accelerators */}
+        {messages.length <= 1 && (
+          <div className="space-y-1 pb-3 pt-0.5 select-none">
+            <span className="text-[9px] uppercase font-bold tracking-widest text-[#FF4E00] block pl-1 font-mono">
+              Quick Sentinel Prompts
+            </span>
+            <div className="grid grid-cols-2 gap-1.5 w-full">
+              {QUICK_ACTIONS.map((action, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => handleQuickAction(action.label)}
+                  className="flex items-center justify-between p-2 rounded-xl bg-[#090A0F] border border-white/5 hover:border-[#00F2FF]/40 hover:bg-[#00F2FF]/5 transition duration-150 cursor-pointer text-left min-w-0"
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="shrink-0">{action.icon}</div>
+                    <div className="min-w-0">
+                      <span className="text-[10px] font-bold text-white block truncate leading-tight">
+                        {action.label}
+                      </span>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Input textbox bar */}
-      <div className="p-2.5 bg-[#12121A] rounded-xl border border-white/10 flex items-center gap-1.5 mt-4 shadow-xl">
+      {/* Persistent dialogue execution bar */}
+      <div className="p-2.5 bg-[#0C0F16] rounded-xl border border-white/10 flex items-center gap-1.5 mt-2 shadow-xl shrink-0">
         <input 
           type="text"
           value={inputVal}
           onChange={(e) => setInputVal(e.target.value)}
-          placeholder="Ask Compawss pilot or report status..."
-          className="bg-transparent border-0 text-white focus:outline-none focus:ring-0 text-xs flex-1 px-2 py-1 placeholder-white/30 font-sans"
-          onKeyDown={(e) => e.key === 'Enter' && sendMsg()}
+          placeholder={loading ? "Co-Pilot is researching emergency guidelines..." : "Inquire co-pilot tactical dispatch guidelines..."}
+          disabled={loading}
+          className="bg-transparent border-0 text-white focus:outline-none focus:ring-0 text-xs flex-1 px-2 py-1.5 placeholder-white/30 font-sans disabled:opacity-50"
+          onKeyDown={(e) => e.key === 'Enter' && !loading && sendMsg()}
         />
         <button 
           onClick={sendMsg}
-          className="px-4 py-1.5 bg-[#FF4E00] text-white text-xs font-bold rounded-lg cursor-pointer hover:bg-[#FF4E00]/85 transition font-sans flex items-center justify-center whitespace-nowrap"
+          disabled={loading || !inputVal.trim()}
+          className="px-4 py-1.5 bg-[#FF4E00] disabled:bg-[#FF4E00]/40 disabled:text-white/40 text-white text-xs font-bold rounded-lg cursor-pointer hover:bg-[#FF4E00]/85 transition font-sans flex items-center justify-center whitespace-nowrap"
         >
           Send
         </button>

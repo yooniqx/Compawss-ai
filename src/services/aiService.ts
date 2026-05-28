@@ -1,3 +1,5 @@
+import { useState, useEffect } from 'react';
+
 /**
  * Compawss Client-Side AI Service Layer.
  * Connects securely to the FastAPI Python backend under `/backend/main.py`.
@@ -8,49 +10,191 @@
  * 3. Fallback Data: Switches cleanly to standard mock heuristics decorated as "Demo AI / Backend Offline".
  */
 
-export const BACKEND_URL = (import.meta as any).env?.VITE_AI_BACKEND_URL || '';
-export const DEFAULT_TIMEOUT_MS = 3000; // Fast fail to avoid blocking user interaction
+const envBackendUrl = ((import.meta as any).env?.VITE_AI_BACKEND_URL || '').trim();
+export const BACKEND_URL = envBackendUrl || 'https://compawss-ai.onrender.com';
+export const DEFAULT_TIMEOUT_MS = 20000; // Generous timeout for free-tier Render wake-ups
 
 // Cache-based health status to prevent excessive repetitive ping timeouts
 let cachedBackendStatusCache: { connected: boolean; checkedAt: number } | null = null;
 const CACHE_TTL_MS = 15000; // Checked every 15s maximum
 
+export interface BackendStatus {
+  url: string;
+  isLive: boolean; // CENTRAL STATUS
+  lastSuccessfulCall: string;
+  responseTimeMs: number | null;
+  mode: 'LIVE BACKEND' | 'OFFLINE' | 'DEMO MODE';
+  isWakingUp: boolean;
+  checking: boolean;
+}
+
+export let globalBackendStatus: BackendStatus = {
+  url: BACKEND_URL,
+  isLive: false,
+  lastSuccessfulCall: 'Never',
+  responseTimeMs: null,
+  mode: 'DEMO MODE',
+  isWakingUp: false,
+  checking: false
+};
+
+type BackendStatusListener = (status: BackendStatus) => void;
+const listeners = new Set<BackendStatusListener>();
+
+export function subscribeBackendStatus(listener: BackendStatusListener) {
+  listeners.add(listener);
+  listener({ ...globalBackendStatus });
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+export function updateBackendStatus(updated: Partial<BackendStatus>) {
+  globalBackendStatus = { ...globalBackendStatus, ...updated };
+  listeners.forEach(l => l({ ...globalBackendStatus }));
+}
+
+export function useBackendStatus() {
+  const [status, setStatus] = useState<BackendStatus>(globalBackendStatus);
+
+  useEffect(() => {
+    return subscribeBackendStatus((newStatus) => {
+      setStatus(newStatus);
+    });
+  }, []);
+
+  return status;
+}
+
+export function determineOnlineFromResponse(status: number, data: any): { isOnline: boolean; parsedStatus: string } {
+  let isOnline = false;
+  let parsedStatus = "unknown";
+  if (data && typeof data === 'object') {
+    if (data.status) {
+      parsedStatus = String(data.status);
+    }
+    const statusLower = parsedStatus.toLowerCase();
+    const matchesStatus = ["ok", "healthy", "online"].includes(statusLower);
+    const isReady = data.ready === true;
+    isOnline = (status === 200) || matchesStatus || isReady;
+  } else if (status === 200) {
+    isOnline = true;
+    parsedStatus = "ok";
+  }
+  return { isOnline, parsedStatus };
+}
+
 /**
  * Checks if the Python AI Backend is accessible.
  */
-export async function checkBackendHealth(): Promise<boolean> {
+export async function checkBackendHealth(forceCheck = false): Promise<boolean> {
   if (!BACKEND_URL) {
+    console.log("backend health response: null");
+    console.log("parsed backend status: unknown");
+    console.log("final online/offline decision: offline");
+    updateBackendStatus({ isLive: false, mode: 'OFFLINE' });
     return false;
   }
 
   const now = Date.now();
-  if (cachedBackendStatusCache && (now - cachedBackendStatusCache.checkedAt) < CACHE_TTL_MS) {
+  if (!forceCheck && cachedBackendStatusCache && (now - cachedBackendStatusCache.checkedAt) < CACHE_TTL_MS) {
     return cachedBackendStatusCache.connected;
   }
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 1500); // Super fast 1.5s timeout for health checks
+  updateBackendStatus({ checking: true, isWakingUp: true });
+  console.log(`[aiService] [HEALTH CHECK START] Target: ${BACKEND_URL}/health`);
 
-  try {
-    const res = await fetch(`${BACKEND_URL}/health`, {
-      method: 'GET',
-      headers: { 'Accept': 'application/json' },
-      signal: controller.signal
-    });
+  let attemptsLeft = 3;
+  let isOnline = false;
+  let rawResponse: any = null;
+  let parsedStatus: string = "unknown";
+  let startTime = Date.now();
+
+  while (attemptsLeft > 0 && !isOnline) {
+    const currentAttempt = 4 - attemptsLeft;
+    console.log(`[aiService] [HEALTH CHECK ATTEMPT ${currentAttempt}/3] Calling /health...`);
     
-    clearTimeout(timeoutId);
-    if (res.ok) {
-      const data = await res.json();
-      const isHealthy = data.status === 'healthy';
-      cachedBackendStatusCache = { connected: isHealthy, checkedAt: now };
-      return isHealthy;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 20000); // 20s timeout per retry as specified in Task 8
+
+    try {
+      const fetchStart = Date.now();
+      const res = await fetch(`${BACKEND_URL}/health`, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' },
+        signal: controller.signal
+      });
+      const fetchEnd = Date.now();
+      const duration = fetchEnd - fetchStart;
+
+      clearTimeout(timeoutId);
+
+      if (res.status === 200 || res.ok) {
+        try {
+          const data = await res.json();
+          rawResponse = data;
+          const verdict = determineOnlineFromResponse(res.status, data);
+          isOnline = verdict.isOnline;
+          parsedStatus = verdict.parsedStatus;
+        } catch (jsonErr) {
+          console.warn("[aiService] Health check JSON parse failed but HTTP is 200/OK:", jsonErr);
+          isOnline = true;
+          parsedStatus = "json-parse-failed";
+        }
+      } else {
+        try {
+          const data = await res.json();
+          rawResponse = data;
+          const verdict = determineOnlineFromResponse(res.status, data);
+          isOnline = verdict.isOnline;
+          parsedStatus = verdict.parsedStatus;
+        } catch (jsonErr) {
+          parsedStatus = `HTTP-${res.status}`;
+        }
+      }
+
+      if (isOnline) {
+        updateBackendStatus({
+          isLive: true,
+          lastSuccessfulCall: new Date().toLocaleTimeString(),
+          responseTimeMs: duration,
+          mode: 'LIVE BACKEND',
+          isWakingUp: false,
+          checking: false
+        });
+        console.log("backend health response:", rawResponse);
+        console.log("parsed backend status:", parsedStatus);
+        console.log("final online/offline decision: online");
+        cachedBackendStatusCache = { connected: true, checkedAt: Date.now() };
+        return true;
+      }
+    } catch (err: any) {
+      const isTimeout = err.name === 'AbortError';
+      const triggerReason = isTimeout ? 'Timeout (20s)' : (err.message || 'Network Error');
+      console.warn(`[aiService] [HEALTH ATTEMPT ${currentAttempt}/3 FAILED] Trigger reason: ${triggerReason}`);
+    } finally {
+      clearTimeout(timeoutId);
     }
-  } catch (err) {
-    console.debug('Python AI backend health check failed. Using fallback simulation:', err);
+
+    attemptsLeft--;
+    if (attemptsLeft > 0 && !isOnline) {
+      console.log(`[aiService] Waiting 2 seconds before retry attempt...`);
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    }
   }
 
-  clearTimeout(timeoutId);
-  cachedBackendStatusCache = { connected: false, checkedAt: now };
+  // If we reach here, we failed all 3 attempts
+  updateBackendStatus({
+    isLive: false,
+    mode: 'DEMO MODE', // Since we go to fallbacks when offline
+    isWakingUp: false,
+    checking: false
+  });
+  console.log("backend health response:", rawResponse);
+  console.log("parsed backend status:", parsedStatus);
+  console.log("final online/offline decision: offline");
+
+  cachedBackendStatusCache = { connected: false, checkedAt: Date.now() };
   return false;
 }
 
@@ -58,15 +202,27 @@ export async function checkBackendHealth(): Promise<boolean> {
  * Helper to fetch with absolute timeout guards.
  */
 async function apiRequest<T>(endpoint: string, payload: any, fallbackData: T): Promise<{ data: T; isLive: boolean }> {
-  if (!BACKEND_URL) {
+  const requestUrl = `${BACKEND_URL}${endpoint}`;
+  const requestStart = new Date().toISOString();
+  console.log(`[aiService] [REQUEST START] URL: ${requestUrl} | Endpoint: ${endpoint} | Start: ${requestStart}`);
+
+  if (!globalBackendStatus.isLive) {
+    console.log(`[aiService] [FALLBACK ACTIVE] Backend is registered as OFFLINE/DEMO. Triggering mock fallback directly. Reason: Central Status Offline.`);
     return { data: fallbackData, isLive: false };
   }
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
+  // Since Render free tier might cold start, we use a generous timeout! We specify 20 seconds
+  const timeoutId = setTimeout(() => controller.abort(), 20000);
+
+  let responseStatus = 0;
+  let rawJson: any = null;
+  let fallbackReason = "";
+  let duration = 0;
 
   try {
-    const response = await fetch(`${BACKEND_URL}${endpoint}`, {
+    const startMs = Date.now();
+    const response = await fetch(requestUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -75,20 +231,48 @@ async function apiRequest<T>(endpoint: string, payload: any, fallbackData: T): P
       body: JSON.stringify(payload),
       signal: controller.signal
     });
+    const endMs = Date.now();
+    duration = endMs - startMs;
+    responseStatus = response.status;
 
     clearTimeout(timeoutId);
 
     if (response.ok) {
       const json = await response.json();
+      rawJson = json;
+      
+      console.log(`[aiService] [REQUEST SUCCESS] URL: ${requestUrl} | Status: ${responseStatus} | Parsed JSON:`, json);
+      
+      // Update our centralized stats reactive to live responses
+      updateBackendStatus({
+        isLive: true,
+        lastSuccessfulCall: new Date().toLocaleTimeString(),
+        responseTimeMs: duration,
+        mode: 'LIVE BACKEND'
+      });
+
       return { data: json, isLive: true };
     } else {
-      console.warn(`AI backend returned code ${response.status} for ${endpoint}. Falling back.`);
+      fallbackReason = `HTTP Error Code: ${response.status}`;
+      try {
+        rawJson = await response.json();
+      } catch (_) {}
+      console.warn(`[aiService] [REQUEST FAILED] AI backend returned code ${response.status} for ${endpoint}. Fallback reason: ${fallbackReason}`);
     }
-  } catch (error) {
-    console.debug(`AI service request failed for ${endpoint} (Timeout or offline). Falling back.`, error);
+  } catch (error: any) {
+    const isTimeout = error.name === 'AbortError';
+    fallbackReason = isTimeout ? "Timeout (20s reached)" : (error.message || "Network Error");
+    console.debug(`[aiService] [REQUEST ERROR] API request failed for ${endpoint}. Fallback reason: ${fallbackReason}. Error details:`, error);
+  } finally {
+    clearTimeout(timeoutId);
   }
 
-  clearTimeout(timeoutId);
+  console.log(`[aiService] [REQUEST COMPLETED WITH FALLBACK] URL: ${requestUrl} | Status: ${responseStatus} | Parsed JSON:`, rawJson, `| Fallback trigger reason: ${fallbackReason}`);
+
+  // If we had a successful connection before but this particular request failed/timed out,
+  // we check health again in the background to see if we lost the backend
+  checkBackendHealth(true).catch(() => {});
+
   return { data: fallbackData, isLive: false };
 }
 

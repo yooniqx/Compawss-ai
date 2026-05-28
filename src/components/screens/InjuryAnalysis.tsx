@@ -44,6 +44,7 @@ import {
 import { Screen } from '../../types';
 import { CompawssLogo } from '../CompawssLogo';
 import { useRescue } from '../../context/RescueContext';
+import { getDemoMode } from '../../data';
 import { uploadRescueImage } from '../../services/supabaseClient';
 import { 
   checkBackendHealth, 
@@ -53,7 +54,8 @@ import {
   computeSeverityScore, 
   recommendAction, 
   matchResponders, 
-  translateGuidance 
+  translateGuidance,
+  useBackendStatus
 } from '../../services/aiService';
 
 
@@ -223,17 +225,14 @@ export const VoiceReportingView: React.FC<VoiceReportingProps> = ({ onNavigate }
       setIsLiveCamera(true);
       setCameraError(null);
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ 
-          video: { facingMode: 'environment' },
-          audio: false 
-        });
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
         streamRef.current = stream;
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
         }
       } catch (err: any) {
-        console.warn("Camera hardware or secure iframe block. Simulating camera overlay.", err);
-        setCameraError("Camera Permission Locked. Active Shielding Simulator Activated.");
+        console.error("Camera access failed:", err);
+        setCameraError("Camera access denied or unavailable.");
       }
     }
   };
@@ -252,14 +251,37 @@ export const VoiceReportingView: React.FC<VoiceReportingProps> = ({ onNavigate }
     };
   }, []);
 
-  // Simulate snapshot from camera
+  // Capture snapshot from real webcam video stream
   const captureSnapshot = () => {
-    stopCamera();
-    // Simulate framing lock on preset animal or manual template
-    const simulatedImage = activePreset === 'kitten' 
-      ? PRESETS.kitten.image 
-      : (PRESETS.dog.image || 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?auto=format&fit=crop&q=80&w=400');
-    setCapturedMedia({ type: 'photo', url: simulatedImage });
+    if (videoRef.current && streamRef.current && !cameraError) {
+      try {
+        const video = videoRef.current;
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth || 640;
+        canvas.height = video.videoHeight || 480;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          const dataUrl = canvas.toDataURL('image/jpeg');
+          setCapturedMedia({ type: 'photo', url: dataUrl });
+          
+          // Sync with draft storage immediately
+          const rawDraft = localStorage.getItem('compawss_active_draft');
+          if (rawDraft) {
+            try {
+              const parsed = JSON.parse(rawDraft);
+              parsed.image = dataUrl;
+              localStorage.setItem('compawss_active_draft', JSON.stringify(parsed));
+            } catch (e) {
+              console.warn('Error syncing draft storage:', e);
+            }
+          }
+        }
+        stopCamera();
+      } catch (err) {
+        console.error("Failed to capture image from video stream:", err);
+      }
+    }
   };
 
   // File Uploader handle
@@ -350,6 +372,31 @@ export const VoiceReportingView: React.FC<VoiceReportingProps> = ({ onNavigate }
     }, 10000);
   };
 
+  // Reactively respond to CTA redirects from the Empty Scan state
+  useEffect(() => {
+    const forceCam = localStorage.getItem('compawss_force_camera');
+    if (forceCam === 'true') {
+      localStorage.removeItem('compawss_force_camera');
+      setCapturedMedia({ type: 'none', url: null });
+      applyPreset('manual');
+      toggleCamera();
+    }
+
+    const forceUpload = localStorage.getItem('compawss_force_upload');
+    if (forceUpload === 'true') {
+      localStorage.removeItem('compawss_force_upload');
+      setCapturedMedia({ type: 'none', url: null });
+      applyPreset('manual');
+    }
+
+    const forceVoice = localStorage.getItem('compawss_force_voice');
+    if (forceVoice === 'true') {
+      localStorage.removeItem('compawss_force_voice');
+      applyPreset('manual');
+      handleStartVoiceRecord();
+    }
+  }, []);
+
   // Multiselect tags handler
   const toggleTag = (tag: string) => {
     setSelectedTags(prev => 
@@ -426,17 +473,12 @@ export const VoiceReportingView: React.FC<VoiceReportingProps> = ({ onNavigate }
 
       {/* Viewport Capture Console Container */}
       <div className="rounded-2xl border border-white/10 bg-[#0c0c12] relative overflow-hidden shadow-2xl">
-        {/* Glowing HUD matrix framing */}
+        {/* Simple Human HUD Title */}
         <div className="absolute top-2 left-2 flex items-center gap-1.5 z-10 px-2 py-0.5 bg-black/70 border border-white/10 rounded-full">
-          <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
-          <span className="text-[8px] font-mono text-cyan-400 uppercase tracking-widest">SPECTRAL HUD MATCH</span>
-        </div>
-        
-        {/* Dynamic Telemetry Box (Right side) */}
-        <div className="absolute top-2 right-2 text-right font-mono text-[8px] text-[#cbc3d7]/40 leading-tight z-10 hidden sm:block pointer-events-none">
-          <div>SYS_ISO_DETECTION: {activePreset.toUpperCase()}</div>
-          <div>COORDS: RESCUE_GRID_S4</div>
-          <div>FREQ: 142.80 MHz</div>
+          <span className={`w-1.5 h-1.5 rounded-full ${isLiveCamera ? 'bg-red-500 animate-pulse' : 'bg-[#cbc3d7]/40'}`} />
+          <span className="text-[8px] font-mono text-white uppercase tracking-widest">
+            {isLiveCamera ? 'LIVE CAMERA' : capturedMedia.url ? 'MEDIA WORKSPACE' : 'CAMERA STANDBY'}
+          </span>
         </div>
 
         {/* Viewport frame itself */}
@@ -445,27 +487,25 @@ export const VoiceReportingView: React.FC<VoiceReportingProps> = ({ onNavigate }
           {/* Grid canvas background */}
           <div className="absolute inset-0 bg-[linear-gradient(to_right,#14141e_1px,transparent_1px),linear-gradient(to_bottom,#14141e_1px,transparent_1px)] bg-[size:16px_16px] opacity-35" />
 
-          {/* Glowing laser analyzer sweep line (only if scanning or camera is active) */}
-          {(isLiveCamera || capturedMedia.url) && (
-            <div className="absolute inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-[#00F2FF] to-transparent shadow-[0_0_10px_rgba(0,242,255,0.8)] z-10 animate-pulse pointer-events-none" style={{
-              animation: 'spin 4s linear infinite',
-              top: '40%'
-            }} />
-          )}
-
           {isLiveCamera ? (
             <div className="w-full h-full relative">
               {cameraError ? (
-                <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center z-10 space-y-2 bg-[#08080c]/90">
-                  <AlertOctagon className="w-8 h-8 text-amber-500 animate-bounce" />
-                  <p className="text-xs font-mono text-amber-300 uppercase leading-none">{cameraError}</p>
-                  <p className="text-[10px] text-[#cbc3d7]/65 max-w-xs">Hardware blocks default to orbital satellite feed simulation system.</p>
-                  <button 
-                    onClick={captureSnapshot} 
-                    className="mt-2.5 px-3 py-1 bg-[#00F2FF]/15 hover:bg-[#00F2FF]/30 border border-[#00F2FF]/40 text-[#00F2FF] rounded-lg text-xs font-mono font-bold"
-                  >
-                    LOCK SHIELD PRESET FRAME
-                  </button>
+                <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center z-10 space-y-3 bg-[#08080c]/95">
+                  <AlertOctagon className="w-8 h-8 text-red-500" />
+                  <p className="text-xs font-sans text-red-400 font-bold leading-normal">{cameraError}</p>
+                  <label className="mt-2 px-4 py-2 bg-[#00F2FF]/10 hover:bg-[#00F2FF]/20 border border-[#00F2FF]/30 text-[#00F2FF] rounded-xl text-xs font-mono font-bold tracking-wider transition cursor-pointer flex items-center justify-center gap-1.5 shadow-md">
+                    <Upload className="w-4 h-4 text-[#00F2FF]" />
+                    UPLOAD IMAGE FROM DEVICE
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      className="hidden" 
+                      onChange={(e) => {
+                        handleFileUpload(e, 'photo');
+                        stopCamera();
+                      }} 
+                    />
+                  </label>
                 </div>
               ) : (
                 <video 
@@ -476,16 +516,6 @@ export const VoiceReportingView: React.FC<VoiceReportingProps> = ({ onNavigate }
                   className="w-full h-full object-cover" 
                 />
               )}
-              {/* Virtual scanning reticle overlays */}
-              <div className="absolute inset-10 border border-cyan-400/20 rounded-xl pointer-events-none">
-                <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-cyan-400" />
-                <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-cyan-400" />
-                <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-cyan-400" />
-                <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-cyan-400" />
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center">
-                  <Crosshair className="w-8 h-8 text-cyan-400/50 animate-spin" style={{ animationDuration: '20s' }} />
-                </div>
-              </div>
             </div>
           ) : capturedMedia.url ? (
             <div className="w-full h-full relative">
@@ -516,39 +546,65 @@ export const VoiceReportingView: React.FC<VoiceReportingProps> = ({ onNavigate }
               </div>
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center p-6 text-center space-y-2">
-              <Camera className="w-12 h-12 text-[#cbc3d7]/30" />
-              <p className="text-xs font-mono text-[#cbc3d7]/60">NO RESCUE VISUAL DETECTED</p>
-              <p className="text-[10px] text-[#cbc3d7]/40 max-w-xs leading-normal">Transmit video or photo feed downlinks for complete diagnostic AI processing.</p>
+            <div className="flex flex-col items-center justify-center p-6 text-center space-y-3">
+              <Camera className="w-10 h-10 text-[#cbc3d7]/30" />
+              <p className="text-xs font-mono text-[#cbc3d7]/60">NO RESCUE VISUAL ACTIVE</p>
+              <div className="flex flex-col sm:flex-row gap-2 w-full max-w-xs justify-center pt-1">
+                <label className="px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-lg text-[10.5px] font-mono font-bold tracking-wider transition cursor-pointer flex items-center justify-center gap-1 shadow-sm">
+                  <Upload className="w-3.5 h-3.5 text-[#00F2FF]" />
+                  UPLOAD PHOTO
+                  <input 
+                    type="file" 
+                    accept="image/*" 
+                    className="hidden" 
+                    onChange={(e) => handleFileUpload(e, 'photo')} 
+                  />
+                </label>
+                <label className="px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-lg text-[10.5px] font-mono font-bold tracking-wider transition cursor-pointer flex items-center justify-center gap-1 shadow-sm">
+                  <FileVideo className="w-3.5 h-3.5 text-[#FF4E00]" />
+                  UPLOAD VIDEO
+                  <input 
+                    type="file" 
+                    accept="video/*" 
+                    className="hidden" 
+                    onChange={(e) => handleFileUpload(e, 'video')} 
+                  />
+                </label>
+              </div>
             </div>
           )}
         </div>
 
         {/* Tactical Media Action Deck Control */}
-        <div className="p-3 bg-[#111116] border-t border-white/5 grid grid-cols-2 gap-2">
+        <div className="p-3 bg-[#111116] border-t border-white/5 grid grid-cols-2 gap-2 font-mono">
           <button
             onClick={toggleCamera}
-            className={`py-2 rounded-xl text-xs font-bold font-mono tracking-wide transition flex items-center justify-center gap-1.5 cursor-pointer ${
+            className={`py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
               isLiveCamera 
                 ? 'bg-red-500/20 border border-red-500/40 text-red-400 hover:bg-red-500/30' 
                 : 'bg-white/5 border border-white/10 text-white hover:bg-white/10'
             }`}
           >
             <Camera className="w-4 h-4 text-cyan-400" />
-            {isLiveCamera ? 'STOP STREAM' : 'OPEN CO-PILOT CAM'}
+            {isLiveCamera ? 'STOP WEBCAM' : 'OPEN WEBCAM'}
           </button>
 
           {isLiveCamera ? (
             <button
               onClick={captureSnapshot}
-              className="py-2 rounded-xl bg-cyan-500 text-black text-xs font-black font-mono tracking-wider hover:bg-cyan-400 transition cursor-pointer flex items-center justify-center gap-1"
+              disabled={!!cameraError}
+              className={`py-2 rounded-xl text-xs font-black tracking-wider transition flex items-center justify-center gap-1 ${
+                cameraError 
+                  ? 'bg-[#181822] border border-white/5 text-[#cbc3d7]/20 cursor-not-allowed shadow-none' 
+                  : 'bg-cyan-500 hover:bg-cyan-400 text-black cursor-pointer shadow-[0_2px_10px_rgba(6,182,212,0.35)]'
+              }`}
             >
               <Crosshair className="w-4 h-4" />
               CAPTURE SCAN
             </button>
           ) : (
             <div className="grid grid-cols-2 gap-1.5">
-              <label className="py-2 border border-white/10 hover:border-cyan-400/30 hover:bg-white/5 rounded-xl text-[10px] font-bold font-mono text-[#cbc3d7] tracking-wider transition cursor-pointer flex items-center justify-center gap-1">
+              <label className="py-2 border border-white/10 hover:border-cyan-400/30 hover:bg-white/5 rounded-xl text-[10px] font-bold text-[#cbc3d7] tracking-wider transition cursor-pointer flex items-center justify-center gap-1">
                 <Upload className="w-3.5 h-3.5 text-[#00F2FF]" />
                 PHOTO
                 <input 
@@ -560,7 +616,7 @@ export const VoiceReportingView: React.FC<VoiceReportingProps> = ({ onNavigate }
                 />
               </label>
 
-              <label className="py-2 border border-white/10 hover:border-cyan-400/30 hover:bg-white/5 rounded-xl text-[10px] font-bold font-mono text-[#cbc3d7] tracking-wider transition cursor-pointer flex items-center justify-center gap-1">
+              <label className="py-2 border border-white/10 hover:border-cyan-400/30 hover:bg-white/5 rounded-xl text-[10px] font-bold text-[#cbc3d7] tracking-wider transition cursor-pointer flex items-center justify-center gap-1">
                 <FileVideo className="w-3.5 h-3.5 text-[#FF4E00]" />
                 VIDEO
                 <input 
@@ -885,7 +941,12 @@ export const VoiceReportingView: React.FC<VoiceReportingProps> = ({ onNavigate }
       <div className="pt-2">
         <button
           onClick={handleSubmitDraft}
-          className="w-full relative py-4 rounded-xl bg-gradient-to-r from-[#FF4E00] to-orange-500 hover:brightness-110 active:scale-[0.98] transition flex items-center justify-center gap-2 font-display font-black text-xs text-white uppercase tracking-widest shadow-[0_4px_30px_rgba(255,78,0,0.35)] cursor-pointer"
+          disabled={!capturedMedia?.url}
+          className={`w-full relative py-4 rounded-xl transition flex items-center justify-center gap-2 font-display font-black text-xs text-white uppercase tracking-widest cursor-pointer ${
+            !capturedMedia?.url
+              ? 'bg-[#181822] border border-white/5 text-[#cbc3d7]/30 cursor-not-allowed shadow-none'
+              : 'bg-gradient-to-r from-[#FF4E00] to-orange-500 hover:brightness-110 active:scale-[0.98] shadow-[0_4px_30px_rgba(255,78,0,0.35)]'
+          }`}
         >
           <Sparkle className="w-4 h-4 text-[#FFF1CC] animate-spin" style={{ animationDuration: '6s' }} />
           <span>INITIATE TACTICAL AI SCAN</span>
@@ -906,9 +967,10 @@ interface InjuryAnalysisProps {
 }
 
 export const InjuryAnalysisView: React.FC<InjuryAnalysisProps> = ({ onNavigate }) => {
-  const { reportNewCase, addNotification, userLocation } = useRescue();
+  const { reportNewCase, addNotification, userLocation, isOffline } = useRescue();
   const [draft, setDraft] = useState<any>(null);
-  const [isBackendLive, setIsBackendLive] = useState<boolean | null>(null);
+  const backendStatus = useBackendStatus();
+  const isBackendLive = backendStatus.isLive;
   const [liveResults, setLiveResults] = useState<any>(null);
 
   
@@ -927,8 +989,7 @@ export const InjuryAnalysisView: React.FC<InjuryAnalysisProps> = ({ onNavigate }
   useEffect(() => {
     async function initAnalysis() {
       // 1. Diagnostics check: check if Python AI backend is live in direct non-blocking way
-      const live = await checkBackendHealth();
-      setIsBackendLive(live);
+      const live = !isOffline && (await checkBackendHealth());
 
       // Load local draft
       const raw = localStorage.getItem('compawss_active_draft');
@@ -937,12 +998,21 @@ export const InjuryAnalysisView: React.FC<InjuryAnalysisProps> = ({ onNavigate }
           const parsed = JSON.parse(raw);
           setDraft(parsed);
 
-          if (live) {
+          const hasImage = !!parsed.media?.url;
+          if (!hasImage) {
+            setIsScanning(false);
+          }
+
+          if (live && (hasImage || parsed.transcription || parsed.notes)) {
             // Initiate backend calls safely, avoiding blocking main flow
             try {
-              const mockImg = parsed.media?.url || "preset-url-image-base64";
-              const imgRes = await analyzeImage(mockImg, parsed.presetId);
-              const classRes = await classifyReport(parsed.transcription || parsed.notes || '', parsed.presetId);
+              let imgRes = null;
+              if (hasImage) {
+                imgRes = await analyzeImage(parsed.media.url, parsed.presetId);
+              }
+              const classRes = parsed.transcription || parsed.notes
+                ? await classifyReport(parsed.transcription || parsed.notes, parsed.presetId)
+                : null;
               
               const hasBleed = parsed.tags?.includes('bleeding') || false;
               const hasMobility = parsed.tags?.includes('unable to walk') || false;
@@ -972,7 +1042,10 @@ export const InjuryAnalysisView: React.FC<InjuryAnalysisProps> = ({ onNavigate }
           }
         } catch (e) {
           setDraft(null);
+          setIsScanning(false);
         }
+      } else {
+        setIsScanning(false);
       }
     }
     initAnalysis();
@@ -1029,12 +1102,26 @@ export const InjuryAnalysisView: React.FC<InjuryAnalysisProps> = ({ onNavigate }
 
   // Safe fallback metadata block helper enriched by live Python AI responses when operational
   const basePreset = draft?.presetId ? PRESETS[draft.presetId as 'dog' | 'kitten' | 'manual'] : PRESETS.dog;
-  const resolvedPresetData = {
+  const hasImage = !!draft?.media?.url;
+  const resolvedPresetData = isBackendLive ? {
+    id: draft?.presetId || 'manual',
+    name: draft?.animalName || 'Active Scan Subject',
+    species: hasImage ? (liveResults?.imgRes?.species ?? 'Processing Species...') : 'Unidentified (Requires Photo)',
+    image: draft?.media?.url || '',
+    severity: liveResults?.imgRes?.severity || liveResults?.classRes?.severity || 'Moderate',
+    tags: liveResults?.imgRes?.tags || liveResults?.classRes?.tags || ['analyzing...'],
+    count: draft?.animalCount || 1,
+    landmark: draft?.landmark || 'Detected Coordinates',
+    notes: draft?.notes || '',
+    confidence: hasImage ? (liveResults?.imgRes?.confidence ?? 0) : 0,
+    anomalies: hasImage ? (liveResults?.imgRes?.anomalies ?? 'Awaiting live AI vision results...') : 'No visual anomalies detected (Awaiting Photo Capture)',
+    directives: liveResults?.imgRes?.directives || liveResults?.recRes?.directives || ['Awaiting live directives...'],
+  } : {
     ...basePreset,
-    confidence: liveResults?.imgRes?.confidence ?? basePreset.confidence,
-    anomalies: liveResults?.imgRes?.anomalies ?? basePreset.anomalies,
-    directives: liveResults?.recRes?.directives ?? basePreset.directives,
-    species: liveResults?.imgRes?.species ?? basePreset.species,
+    confidence: hasImage ? (liveResults?.imgRes?.confidence ?? basePreset.confidence) : 0,
+    anomalies: hasImage ? (liveResults?.imgRes?.anomalies ?? basePreset.anomalies) : 'No visual anomalies detected (Awaiting Photo Capture)',
+    directives: liveResults?.imgRes?.directives || liveResults?.recRes?.directives || basePreset.directives,
+    species: hasImage ? (liveResults?.imgRes?.species ?? basePreset.species) : 'Unidentified (Requires Photo)',
   };
 
   // Render scan progress bar
@@ -1283,22 +1370,64 @@ export const InjuryAnalysisView: React.FC<InjuryAnalysisProps> = ({ onNavigate }
   return (
     <div className="flex-1 pb-32 overflow-y-auto w-full px-4 md:px-8 max-w-lg mx-auto pt-4 space-y-6 animate-in fade-in duration-300">
       
-      {/* Python AI Backend Connection Status Indicator */}
-      <div className="p-3.5 rounded-2xl bg-[#0c0c12] border border-white/5 flex items-center justify-between text-xs font-mono shadow-xl relative overflow-hidden">
-        <div className="absolute top-0 bottom-0 left-0 w-1.5 bg-gradient-to-b from-[#FF4E00] to-amber-500" />
-        <div className="pl-2 space-y-0.5">
-          <span className="text-[8.5px] uppercase text-[#cbc3d7]/40 block leading-none font-bold">PORT INTEGRATION DECK</span>
-          <span className="text-[#cbc3d7]/90 text-[10.5px] font-bold">Service Endpoint URL: <code className="text-cyan-400 font-mono text-[9px] bg-white/5 px-1 py-0.5 rounded">{BACKEND_URL || 'Not Configured'}</code></span>
-        </div>
-        {isBackendLive ? (
-          <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-green-500/10 border border-green-500/30 text-green-400 text-[8.5px] font-black uppercase tracking-wider">
-            <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-            Live AI / Backend Connected
+      {/* Python AI Backend Connection Status Indicator & Rich Diagnostics Panel */}
+      <div className="p-4 rounded-2xl bg-[#0c0c12] border border-white/5 space-y-3 shadow-xl relative overflow-hidden text-left">
+        <div className="absolute top-0 bottom-0 left-0 w-1.5 bg-gradient-to-b from-cyan-500 via-emerald-500 to-amber-500" />
+        
+        <div className="flex items-center justify-between border-b border-white/5 pb-2">
+          <div>
+            <span className="text-[9px] uppercase text-[#cbc3d7]/40 block leading-none font-bold">SYSTEM TELEMETRY</span>
+            <h3 className="text-white text-xs font-bold font-display uppercase tracking-wider mt-0.5">Live Python AI Engine Diagnostics</h3>
           </div>
-        ) : (
-          <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-[#FF4E00]/10 border border-[#FF4E00]/20 text-[#FF4E00] text-[8.5px] font-black uppercase tracking-wider">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#FF4E00]" />
-            Demo AI / Backend Offline
+          {backendStatus.isWakingUp || backendStatus.checking ? (
+            <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[8.5px] font-black uppercase tracking-wider">
+              <Loader2 className="w-3 h-3 text-amber-400 animate-spin" />
+              Waking/Scanning...
+            </div>
+          ) : isBackendLive ? (
+            <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-green-500/10 border border-green-500/30 text-green-400 text-[8.5px] font-black uppercase tracking-wider">
+              <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+              Live AI Connected
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-[#FF4E00]/10 border border-[#FF4E00]/25 text-[#FF4E00] text-[8.5px] font-black uppercase tracking-wider">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#FF4E00]" />
+              Demo AI Mode Active
+            </div>
+          )}
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 text-[10px] font-mono text-[#cbc3d7]/80">
+          <div>
+            <span className="text-white/40 block text-[8px] uppercase font-bold mb-0.5">SERVICE ENDPOINT</span>
+            <code className="text-cyan-400 bg-white/5 px-1 py-0.5 rounded text-[9px] block truncate" title={BACKEND_URL}>
+              {BACKEND_URL}
+            </code>
+          </div>
+          <div>
+            <span className="text-white/40 block text-[8px] uppercase font-bold mb-0.5">CURRENT CO-PILOT MODE</span>
+            <span className={`font-bold block ${isBackendLive ? 'text-green-400' : 'text-amber-400'}`}>
+              {isBackendLive ? 'LIVE BACKEND' : (isOffline ? 'OFFLINE' : 'DEMO MODE')}
+            </span>
+          </div>
+          <div>
+            <span className="text-white/40 block text-[8px] uppercase font-bold mb-0.5">LAST CO-PILOT APU SYNC</span>
+            <span className="block text-white/90 font-medium">
+              {backendStatus.lastSuccessfulCall || 'Never'}
+            </span>
+          </div>
+          <div>
+            <span className="text-white/40 block text-[8px] uppercase font-bold mb-0.5">API ACTION RESPONSE TIME</span>
+            <span className="block text-white/90 font-medium">
+              {backendStatus.responseTimeMs ? `${backendStatus.responseTimeMs} ms` : 'N/A'}
+            </span>
+          </div>
+        </div>
+
+        {backendStatus.isWakingUp && (
+          <div className="pt-1.5 border-t border-white/5 flex items-center gap-2 text-[#cbc3d7]/60 text-[9px]">
+            <Loader2 className="w-3.5 h-3.5 text-cyan-400 animate-spin" />
+            <span>Waking sleeping Render instance. Please stand by (up to 20s)...</span>
           </div>
         )}
       </div>
@@ -1314,37 +1443,81 @@ export const InjuryAnalysisView: React.FC<InjuryAnalysisProps> = ({ onNavigate }
 
       {/* Interactive Photo Vector Crop View */}
       <div className="rounded-2xl border border-white/10 bg-[#0c0c12] relative overflow-hidden shadow-2xl">
-        <div className="h-60 relative bg-[#06060a]">
+        <div className="min-h-60 h-auto relative bg-[#06060a] flex flex-col justify-between">
           
           {/* Preset image loading */}
           {draft?.media?.url ? (
-            <img 
-              src={draft.media.url} 
-              alt="Scan Target Specimen" 
-              className="w-full h-full object-cover select-none"
-              referrerPolicy="no-referrer"
-            />
+            <div className="h-60 relative w-full">
+              <img 
+                src={draft.media.url} 
+                alt="Scan Target Specimen" 
+                className="w-full h-full object-cover select-none"
+                referrerPolicy="no-referrer"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#0c0c12] via-transparent to-transparent pointer-events-none" />
+              
+              {/* Symmetrical Tech Crosshair overlay matches actual AI scanners */}
+              <div className="absolute inset-x-8 inset-y-10 border border-[#00F2FF]/35 rounded-xl pointer-events-none">
+                <div className="absolute -top-1.5 -left-1.5 h-3.5 w-3.5 border-t-2 border-l-2 border-[#00F2FF] shadow-[0_0_10px_rgba(0,242,255,0.8)]" />
+                <div className="absolute -top-1.5 -right-1.5 h-3.5 w-3.5 border-t-2 border-r-2 border-[#00F2FF] shadow-[0_0_10px_rgba(0,242,255,0.8)]" />
+                <div className="absolute -bottom-1.5 -left-1.5 h-3.5 w-3.5 border-b-2 border-l-2 border-[#00F2FF] shadow-[0_0_10px_rgba(0,242,255,0.8)]" />
+                <div className="absolute -bottom-1.5 -right-1.5 h-3.5 w-3.5 border-b-2 border-r-2 border-[#00F2FF] shadow-[0_0_10px_rgba(0,242,255,0.8)]" />
+
+                <div className="absolute top-2 left-3 bg-black/60 border border-[#00F2FF]/20 px-2.5 py-1 rounded text-[8px] font-mono block tracking-wider shadow">
+                  {resolvedPresetData.confidence < 65 ? (
+                    <span className="text-amber-500">AI CONFIDENCE LIMITED</span>
+                  ) : (
+                    <span className="text-[#00F2FF]">SCAN CONFIDENCE {resolvedPresetData.confidence}%</span>
+                  )}
+                </div>
+              </div>
+            </div>
           ) : (
-            <div className="absolute inset-0 bg-[#08080C] text-slate-500 flex flex-col items-center justify-center p-6 text-center">
-              <AlertOctagon className="w-12 h-12 text-[#cbc3d7]/20 mb-2 animate-pulse" />
-              <p className="text-xs font-mono font-bold uppercase text-[#cbc3d7]/60">NO RESCUE VISUAL RECORDED</p>
-              <p className="text-[10px] text-[#cbc3d7]/40">Diagnostic based primarily on user-uploaded transcription data.</p>
+            <div className="w-full flex flex-col items-center justify-center p-6 md:p-8 text-center bg-[#08080C]">
+              <AlertOctagon className="w-11 h-11 text-amber-500/80 mb-2 animate-pulse" />
+              <p className="text-xs font-mono font-bold uppercase text-amber-500 tracking-wider">No image provided</p>
+              <p className="text-[10px] text-[#cbc3d7]/60 max-w-sm mt-1 mb-5 leading-normal">
+                AI visual analysis is deactivated. Please upload or capture an image of the injury to trigger the automatic scanning algorithm.
+              </p>
+              
+              {/* CTA buttons: “Open Camera”, “Upload Photo”, “Use Voice Report Instead” */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 w-full max-w-md pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    localStorage.setItem('compawss_force_camera', 'true');
+                    onNavigate(Screen.VoiceReporting);
+                  }}
+                  className="flex items-center justify-center gap-1.5 bg-cyan-400 hover:bg-cyan-300 text-black font-mono font-bold text-[9px] uppercase tracking-wider px-3 py-2 rounded-lg transition-all active:scale-95 cursor-pointer shadow"
+                >
+                  <Camera className="w-3 h-3" />
+                  Open Camera
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    localStorage.setItem('compawss_force_upload', 'true');
+                    onNavigate(Screen.VoiceReporting);
+                  }}
+                  className="flex items-center justify-center gap-1.5 bg-white/10 hover:bg-white/15 border border-white/5 text-white font-mono font-bold text-[9px] uppercase tracking-wider px-3 py-2 rounded-lg transition-all active:scale-95 cursor-pointer"
+                >
+                  <Upload className="w-3.5 h-3.5 text-cyan-400" />
+                  Upload Photo
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    localStorage.setItem('compawss_force_voice', 'true');
+                    onNavigate(Screen.VoiceReporting);
+                  }}
+                  className="flex items-center justify-center gap-1.5 bg-white/5 hover:bg-white/10 text-[#cbc3d7] font-mono font-bold text-[9px] uppercase tracking-wider px-3 py-2 rounded-lg transition-all active:scale-95 cursor-pointer"
+                >
+                  <Mic className="w-3 h-3 text-[#FF4E00]" />
+                  Voice Report
+                </button>
+              </div>
             </div>
           )}
-          
-          <div className="absolute inset-0 bg-gradient-to-t from-[#0c0c12] via-transparent to-transparent pointer-events-none" />
-          
-          {/* Symmetrical Tech Crosshair overlay matches actual AI scanners */}
-          <div className="absolute inset-x-8 inset-y-10 border border-[#00F2FF]/35 rounded-xl pointer-events-none">
-            <div className="absolute -top-1.5 -left-1.5 h-3.5 w-3.5 border-t-2 border-l-2 border-[#00F2FF] shadow-[0_0_10px_rgba(0,242,255,0.8)]" />
-            <div className="absolute -top-1.5 -right-1.5 h-3.5 w-3.5 border-t-2 border-r-2 border-[#00F2FF] shadow-[0_0_10px_rgba(0,242,255,0.8)]" />
-            <div className="absolute -bottom-1.5 -left-1.5 h-3.5 w-3.5 border-b-2 border-l-2 border-[#00F2FF] shadow-[0_0_10px_rgba(0,242,255,0.8)]" />
-            <div className="absolute -bottom-1.5 -right-1.5 h-3.5 w-3.5 border-b-2 border-r-2 border-[#00F2FF] shadow-[0_0_10px_rgba(0,242,255,0.8)]" />
-
-            <div className="absolute top-2 left-3 bg-black/60 border border-[#00F2FF]/20 px-2.5 py-1 rounded text-[8px] font-mono text-[#00F2FF] block tracking-wider shadow">
-              SCAN MATCH CONFIDENCE {resolvedPresetData.confidence}%
-            </div>
-          </div>
         </div>
 
         {/* Diagnosis overview card info */}
@@ -1426,24 +1599,28 @@ export const InjuryAnalysisView: React.FC<InjuryAnalysisProps> = ({ onNavigate }
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-              <div className="space-y-1 bg-[#111116] border border-white/5 p-3 rounded-xl">
-                <span className="text-[9px] font-mono text-[#cbc3d7]/40 uppercase block">Anomalies Detected</span>
-                <span className="font-sans font-bold text-white block leading-tight">{resolvedPresetData.anomalies}</span>
+              <div className="space-y-1 bg-[#111116] border border-white/5 p-3 rounded-xl sm:col-span-2">
+                <span className="text-[9px] font-mono text-[#cbc3d7]/40 uppercase block font-bold tracking-wider">AI Grounded Observations</span>
+                <span className="font-sans font-bold text-white block leading-relaxed">{resolvedPresetData.anomalies}</span>
               </div>
 
               <div className="space-y-1 bg-[#111116] border border-white/5 p-3 rounded-xl">
-                <span className="text-[9px] font-mono text-[#cbc3d7]/40 uppercase block">Subject Temperature Estimate</span>
-                <span className="font-sans font-bold text-green-400 block tracking-tight leading-none text-base">102.8 °F // NORMAL</span>
+                <span className="text-[9px] font-mono text-[#cbc3d7]/40 uppercase block font-bold tracking-wider">Triage Urgency Rating</span>
+                <span className={`font-sans font-bold block tracking-tight leading-none text-sm uppercase ${
+                  resolvedPresetData.severity === 'Critical' ? 'text-[#FF4E00]' :
+                  resolvedPresetData.severity === 'Urgent' ? 'text-amber-400' : 'text-green-400'
+                }`}>
+                  {resolvedPresetData.severity || 'Moderate'}
+                </span>
               </div>
 
               <div className="space-y-1 bg-[#111116] border border-white/5 p-3 rounded-xl">
-                <span className="text-[9px] font-mono text-[#cbc3d7]/40 uppercase block">Shock Vitals Correlation</span>
-                <span className="font-sans font-bold text-[#FF4E00] block tracking-tight leading-none text-base">145 BPM // SHOCK</span>
-              </div>
-
-              <div className="space-y-1 bg-[#111116] border border-white/5 p-3 rounded-xl">
-                <span className="text-[9px] font-mono text-[#cbc3d7]/40 uppercase block">Count of Subjects logged</span>
-                <span className="font-sans font-bold text-white block text-sm leading-none">{draft?.animalCount || 1} units locked</span>
+                <span className="text-[9px] font-mono text-[#cbc3d7]/40 uppercase block font-bold tracking-wider">Interpretation Veracity</span>
+                <span className={`font-sans font-bold block tracking-tight leading-none text-sm ${
+                  resolvedPresetData.confidence < 65 ? 'text-amber-500' : 'text-[#00F2FF]'
+                }`}>
+                  {resolvedPresetData.confidence < 65 ? 'AI CONFIDENCE LIMITED' : `SCAN VERIFIED // ${resolvedPresetData.confidence}%`}
+                </span>
               </div>
             </div>
 
@@ -1501,7 +1678,7 @@ export const InjuryAnalysisView: React.FC<InjuryAnalysisProps> = ({ onNavigate }
               status: 'Dispatched',
               animalProfile: {
                 species: isDog ? 'Dog' : 'Cat',
-                name: isDog ? 'Sheru' : 'Milo',
+                name: isDog ? 'Unnamed Dog' : 'Unnamed Cat',
                 age: isDog ? 'Adult' : 'Kitten',
                 healthStatus: draft?.severity || 'Critical'
               },
@@ -1561,17 +1738,17 @@ export const VetDashboardView: React.FC<VetDashboardProps> = ({ onNavigate }) =>
       <div className="grid grid-cols-3 gap-3">
         <div className="rounded-xl bg-[#1f1f25] border border-white/5 p-3 text-center">
           <span className="text-[9px] font-mono text-[#cbc3d7]/40 uppercase tracking-wider block">IN PATIENT</span>
-          <span className="font-display font-black text-xl text-white">05</span>
+          <span className="font-display font-black text-xl text-white">{getDemoMode() ? "05" : "00"}</span>
         </div>
 
         <div className="rounded-xl bg-[#1f1f25] border border-white/5 p-3 text-center">
           <span className="text-[9px] font-mono text-red-400 uppercase tracking-wider block">TRIAGE</span>
-          <span className="font-display font-black text-xl text-red-400">02</span>
+          <span className="font-display font-black text-xl text-red-400">{getDemoMode() ? "02" : "00"}</span>
         </div>
 
         <div className="rounded-xl bg-[#1f1f25] border border-white/5 p-3 text-center">
           <span className="text-[9px] font-mono text-[#4cd7f6] uppercase tracking-wider block">ON WAY</span>
-          <span className="font-display font-black text-xl text-[#4cd7f6]">01</span>
+          <span className="font-display font-black text-xl text-[#4cd7f6]">{getDemoMode() ? "01" : "00"}</span>
         </div>
       </div>
 
@@ -1581,59 +1758,74 @@ export const VetDashboardView: React.FC<VetDashboardProps> = ({ onNavigate }) =>
           Clinical Priorities & Admissions
         </span>
 
-        {/* Barnaby List Row as requested */}
-        <div 
-          onClick={() => onNavigate(Screen.InjuryAnalysis)}
-          className="p-4 bg-gradient-to-r from-red-500/10 via-transparent to-transparent border border-red-500/20 hover:border-red-500/45 rounded-2xl flex items-center justify-between transition-all cursor-pointer group text-left"
-        >
-          <div className="flex items-center gap-3">
-            <div className="relative shrink-0">
-              <img 
-                src="https://images.unsplash.com/photo-1543466835-00a7907e9de1?auto=format&fit=crop&q=80&w=150" 
-                alt="Barnaby" 
-                className="w-11 h-11 object-cover rounded-xl border border-white/10"
-                referrerPolicy="no-referrer"
-              />
-              <span className="absolute -top-1 -right-1 h-3.5 w-3.5 rounded-full bg-red-500 border-2 border-[#131318] animate-ping" />
-            </div>
-
-            <div className="space-y-0.5">
-              <h4 className="font-display font-extrabold text-sm text-red-200 group-hover:text-white transition-colors">
-                Barnaby
-              </h4>
-              <p className="text-[10px] text-[#cbc3d7]/65">
-                Shih Tzu Mix • Trauma Triage Unit
-              </p>
-              <p className="text-[9px] font-mono text-red-400 uppercase font-semibold">
-                Priority 1 - Severe Limb Bleeding
-              </p>
-            </div>
-          </div>
-
-          <ChevronRight className="w-5 h-5 text-red-400 group-hover:translate-x-1 transition-all" />
-        </div>
-
-        {/* Extra Vet Admissions */}
-        <div className="space-y-2">
-          {[
-            { name: 'Maximus', breed: 'Husky Mix', desc: 'Moderate Dehydration recovery', badge: 'Stable', col: 'text-green-400 bg-green-500/5' },
-            { name: 'Chloe', breed: 'Kitten stray', desc: 'Hypothermia monitoring', badge: 'Observation', col: 'text-[#4cd7f6] bg-[#4cd7f6]/5' }
-          ].map((item, idx) => (
+        {getDemoMode() ? (
+          <>
+            {/* Barnaby List Row as requested */}
             <div 
-              key={idx}
-              className="p-4 bg-[#1b1b20] border border-white/5 rounded-2xl flex items-center justify-between text-left"
+              className="p-4 bg-gradient-to-r from-red-500/10 via-transparent to-transparent border border-red-500/20 rounded-2xl flex items-center justify-between transition-all group text-left relative"
             >
-              <div className="space-y-0.5">
-                <span className={`px-2 py-0.5 rounded text-[9px] font-bold inline-block mb-1 ${item.col}`}>
-                  {item.badge}
-                </span>
-                <h4 className="font-display font-bold text-xs text-white leading-none">{item.name}</h4>
-                <p className="text-[10px] text-[#cbc3d7]/65">{item.breed} • {item.desc}</p>
+              <div className="flex items-center gap-3">
+                <div className="relative shrink-0">
+                  <img 
+                    src="https://images.unsplash.com/photo-1543466835-00a7907e9de1?auto=format&fit=crop&q=80&w=150" 
+                    alt="Barnaby" 
+                    className="w-11 h-11 object-cover rounded-xl border border-white/10"
+                    referrerPolicy="no-referrer"
+                  />
+                  <span className="absolute -top-1 -right-1 h-3.5 w-3.5 rounded-full bg-red-500 border-2 border-[#131318] animate-ping" />
+                </div>
+
+                <div className="space-y-0.5">
+                  <h4 className="font-display font-extrabold text-sm text-red-200 flex items-center gap-2">
+                    Barnaby
+                    <span className="inline-block text-[8px] font-mono font-black uppercase px-1.5 py-0.5 bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded">Demo Data</span>
+                  </h4>
+                  <p className="text-[10px] text-[#cbc3d7]/65">
+                    Shih Tzu Mix • Trauma Triage Unit
+                  </p>
+                  <p className="text-[9px] font-mono text-red-400 uppercase font-semibold">
+                    Priority 1 - Severe Limb Bleeding
+                  </p>
+                </div>
               </div>
-              <ChevronRight className="w-4 h-4 text-[#cbc3d7]/20" />
+
+              <ChevronRight className="w-5 h-5 text-red-450/40" />
             </div>
-          ))}
-        </div>
+
+            {/* Extra Vet Admissions */}
+            <div className="space-y-2">
+              {[
+                { name: 'Maximus', breed: 'Husky Mix', desc: 'Moderate Dehydration recovery', badge: 'Stable', col: 'text-green-400 bg-green-500/5' },
+                { name: 'Chloe', breed: 'Kitten stray', desc: 'Hypothermia monitoring', badge: 'Observation', col: 'text-[#4cd7f6] bg-[#4cd7f6]/5' }
+              ].map((item, idx) => (
+                <div 
+                  key={idx}
+                  className="p-4 bg-[#1b1b20] border border-white/5 rounded-2xl flex items-center justify-between text-left"
+                >
+                  <div className="space-y-0.5">
+                    <span className={`px-2 py-0.5 rounded text-[9px] font-bold inline-block mb-1 ${item.col}`}>
+                      {item.badge}
+                    </span>
+                    <h4 className="font-display font-bold text-xs text-white flex items-center gap-2">
+                      {item.name}
+                      <span className="inline-block text-[8px] font-mono font-black uppercase px-1.5 py-0.5 bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded">Demo Data</span>
+                    </h4>
+                    <p className="text-[10px] text-[#cbc3d7]/65">{item.breed} • {item.desc}</p>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-[#cbc3d7]/20" />
+                </div>
+              ))}
+            </div>
+          </>
+        ) : (
+          <div className="p-8 text-center rounded-2xl border border-dashed border-white/10 bg-white/[0.01]">
+            <Clock className="w-10 h-10 text-white/20 mx-auto mb-2 animate-pulse" />
+            <h4 className="text-xs font-bold text-white font-mono uppercase tracking-wider">Queue status empty</h4>
+            <p className="text-[10.5px] text-[#cbc3d7]/60 max-w-xs mx-auto mt-1 leading-normal">
+              No active trauma admissions or triage patient files are currently pending in the clinical database queue.
+            </p>
+          </div>
+        )}
       </div>
 
     </div>

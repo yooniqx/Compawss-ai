@@ -7,7 +7,23 @@ import { safeFetchSupabaseTable, isSupabaseConfigured, SupabaseRecord } from './
  * and realistic Indian emergency shelter & responders directories.
  */
 
-const RAW_SUPABASE_URL = (import.meta as any).env?.VITE_SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
+const sanitizeSupabaseUrl = (url: string): string => {
+  if (!url) return '';
+  let cleaned = url.trim().replace(/^["']|["']$/g, '');
+  while (cleaned.endsWith('/')) {
+    cleaned = cleaned.slice(0, -1);
+  }
+  // Strip '/rest/v1' suffix if present to ensure we have the base host URL
+  if (cleaned.endsWith('/rest/v1')) {
+    cleaned = cleaned.slice(0, -8);
+  }
+  while (cleaned.endsWith('/')) {
+    cleaned = cleaned.slice(0, -1);
+  }
+  return cleaned;
+};
+
+const RAW_SUPABASE_URL = sanitizeSupabaseUrl((import.meta as any).env?.VITE_SUPABASE_URL || process.env.VITE_SUPABASE_URL || '');
 
 export const API_KEYS = {
   // Google Maps Platform API Key (Exposed to Vite bundle)
@@ -15,7 +31,7 @@ export const API_KEYS = {
 
   // Database credentials endpoints (Supabase)
   SUPABASE_URL: RAW_SUPABASE_URL,
-  SUPABASE_ANON_KEY: (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '',
+  SUPABASE_ANON_KEY: ((import.meta as any).env?.VITE_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '').trim().replace(/^["']|["']$/g, ''),
 
   // NGO/Rescuer customized directory API endpoint (Using Supabase REST endpoint for the 'ngos' table)
   NGO_DIRECTORY_API_URI: RAW_SUPABASE_URL ? `${RAW_SUPABASE_URL}/rest/v1/ngos` : ''

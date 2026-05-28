@@ -18,9 +18,10 @@ import {
   AlertTriangle 
 } from 'lucide-react';
 import { Screen } from '../../types';
-import { NGO_COORD_RESCUERS, DASHBOARD_STATS, RESCUE_CASES } from '../../data';
+import { NGO_COORD_RESCUERS, DASHBOARD_STATS, RESCUE_CASES, getDemoMode } from '../../data';
 import { CompawssLogo } from '../CompawssLogo';
 import { useRescue } from '../../context/RescueContext';
+import { isSupabaseConfigured } from '../../services/supabaseClient';
 
 
 /* ==========================================================================
@@ -491,7 +492,9 @@ export const NGODashboardView: React.FC<NGODashboardProps> = ({ onNavigate }) =>
           <span className="text-xs font-mono font-bold tracking-wider text-[#cbc3d7]/40 uppercase">
             Active Animal Sighting Log ({activeCases.length})
           </span>
-          <span className="text-[9px] font-mono text-[#00F2FF]">LIVE UPDATING</span>
+          {isSupabaseConfigured() && (
+            <span className="text-[9px] font-mono text-[#00F2FF]">LIVE UPDATING</span>
+          )}
         </div>
 
         {activeCases.length === 0 ? (
@@ -500,29 +503,36 @@ export const NGODashboardView: React.FC<NGODashboardProps> = ({ onNavigate }) =>
           </div>
         ) : (
           <div className="space-y-3">
-            {activeCases.map((c) => (
-              <div 
-                key={c.id} 
-                className="p-3 bg-white/[0.02] hover:bg-white/[0.04] border border-white/5 rounded-xl space-y-2.5 transition"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded ${
-                        c.priority === 'Critical' 
-                          ? 'bg-red-500/20 text-red-400' 
-                          : (c.priority === 'High' ? 'bg-amber-500/20 text-amber-400' : 'bg-blue-500/20 text-blue-400')
-                      }`}>
-                        {c.priority}
-                      </span>
-                      <span className="text-xs font-bold text-white">{c.animalProfile.species} ({c.animalProfile.name})</span>
+            {activeCases.map((c) => {
+              const isDemoItem = getDemoMode() && c.id.startsWith('case-10');
+              return (
+                <div 
+                  key={c.id} 
+                  className="p-3 bg-white/[0.02] hover:bg-white/[0.04] border border-white/5 rounded-xl space-y-2.5 transition"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded ${
+                          c.priority === 'Critical' 
+                            ? 'bg-red-500/20 text-red-400' 
+                            : (c.priority === 'High' ? 'bg-amber-500/20 text-amber-400' : 'bg-blue-500/20 text-blue-400')
+                        }`}>
+                          {c.priority}
+                        </span>
+                        <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                          {c.animalProfile.species} ({c.animalProfile.name})
+                          {isDemoItem && (
+                            <span className="inline-block text-[8px] font-mono font-black uppercase px-1 py-0.5 bg-amber-500/25 text-amber-400 border border-amber-500/30 rounded">Demo Data</span>
+                          )}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-[#cbc3d7]/70 mt-1">Sighting: {c.location} • {c.distance}</p>
                     </div>
-                    <p className="text-[10px] text-[#cbc3d7]/70 mt-1">Sighting: {c.location} • {c.distance}</p>
+                    <span className="text-[10px] font-mono text-[#4cd7f6] bg-[#4cd7f6]/10 px-2 py-0.5 rounded">
+                      {c.status}
+                    </span>
                   </div>
-                  <span className="text-[10px] font-mono text-[#4cd7f6] bg-[#4cd7f6]/10 px-2 py-0.5 rounded">
-                    {c.status}
-                  </span>
-                </div>
 
                 <div className="text-[11px] text-[#cbc3d7]/80 italic bg-black/25 p-2 rounded border border-white/5">
                   &ldquo;{c.medicalRecords?.[0]?.condition || c.type}&rdquo;
@@ -534,10 +544,18 @@ export const NGODashboardView: React.FC<NGODashboardProps> = ({ onNavigate }) =>
                       👤 ON SITE: {c.resolver.name} ({c.resolver.role})
                     </span>
                     <button
-                      onClick={() => handleResolve(c.id)}
-                      className="px-2.5 py-1 text-[10px] bg-green-500 hover:bg-green-600 text-black font-extrabold rounded transition active:scale-95"
+                      onClick={() => {
+                        if (isDemoItem) return;
+                        handleResolve(c.id);
+                      }}
+                      disabled={isDemoItem}
+                      className={`px-2.5 py-1 text-[10px] font-extrabold rounded transition active:scale-95 ${
+                        isDemoItem
+                          ? 'bg-white/5 text-[#cbc3d7]/30 cursor-not-allowed'
+                          : 'bg-green-500 hover:bg-green-600 text-black cursor-pointer'
+                      }`}
                     >
-                      Resolve Case
+                      {isDemoItem ? "Resolved Lock" : "Resolve Case"}
                     </button>
                   </div>
                 ) : (
@@ -545,14 +563,22 @@ export const NGODashboardView: React.FC<NGODashboardProps> = ({ onNavigate }) =>
                     <div className="flex items-center justify-between">
                       <span className="text-[#cbc3d7]/50 text-[10px]">No rescue team dispatched</span>
                       <button
-                        onClick={() => setActiveAssignCaseId(activeAssignCaseId === c.id ? null : c.id)}
-                        className="text-[10px] font-bold text-[#4cd7f6] hover:underline"
+                        onClick={() => {
+                          if (isDemoItem) return;
+                          setActiveAssignCaseId(activeAssignCaseId === c.id ? null : c.id);
+                        }}
+                        disabled={isDemoItem}
+                        className={`text-[10px] font-bold ${
+                          isDemoItem 
+                            ? 'text-[#cbc3d7]/30 cursor-not-allowed hover:no-underline'
+                            : 'text-[#4cd7f6] hover:underline cursor-pointer'
+                        }`}
                       >
-                        {activeAssignCaseId === c.id ? "Cancel" : "Dispatch Team Now"}
+                        {isDemoItem ? "Dispatch Locked (Demo)" : (activeAssignCaseId === c.id ? "Cancel" : "Dispatch Team Now")}
                       </button>
                     </div>
 
-                    {activeAssignCaseId === c.id && (
+                    {activeAssignCaseId === c.id && !isDemoItem && (
                       <div className="mt-2 p-2 bg-black/40 rounded-lg border border-white/10 space-y-2 animate-in slide-in-from-top-2 duration-200">
                         <span className="text-[9px] font-mono text-gray-400 block font-bold uppercase">Select Available Responder:</span>
                         <div className="grid grid-cols-1 gap-1 max-h-40 overflow-y-auto">
@@ -572,7 +598,8 @@ export const NGODashboardView: React.FC<NGODashboardProps> = ({ onNavigate }) =>
                   </div>
                 )}
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

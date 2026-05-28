@@ -1,8 +1,31 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Load Supabase credentials dynamically from environment
-const rawSupabaseUrl = (import.meta as any).env?.VITE_SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
-const rawSupabaseAnonKey = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
+// Sanitize URL helper to remove trailing slashes, /rest/v1 suffix, and whitespace
+const sanitizeSupabaseUrl = (url: string): string => {
+  if (!url) return '';
+  let cleaned = url.trim().replace(/^["']|["']$/g, '');
+  while (cleaned.endsWith('/')) {
+    cleaned = cleaned.slice(0, -1);
+  }
+  // Strip '/rest/v1' suffix if present because the Supabase JS client appends /rest/v1 internally automatically.
+  // This prevents 'Invalid path specified in request URL' errors due to double-appending (/rest/v1/rest/v1).
+  if (cleaned.endsWith('/rest/v1')) {
+    cleaned = cleaned.slice(0, -8);
+  }
+  while (cleaned.endsWith('/')) {
+    cleaned = cleaned.slice(0, -1);
+  }
+  return cleaned;
+};
+
+const sanitizeSupabaseAnonKey = (key: string): string => {
+  if (!key) return '';
+  return key.trim().replace(/^["']|["']$/g, '');
+};
+
+// Load and sanitize Supabase credentials dynamically from environment
+const rawSupabaseUrl = sanitizeSupabaseUrl((import.meta as any).env?.VITE_SUPABASE_URL || process.env.VITE_SUPABASE_URL || '');
+const rawSupabaseAnonKey = sanitizeSupabaseAnonKey((import.meta as any).env?.VITE_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '');
 
 // If credentials are empty or contain placeholders, use a safe indicator
 export const isSupabaseConfigured = (): boolean => {
