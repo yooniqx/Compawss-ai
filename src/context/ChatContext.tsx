@@ -29,6 +29,9 @@ interface ChatContextType {
   sendMessage: (text: string) => Promise<void>;
   clearChat: (threadId?: string) => void;
   newThread: (threadId?: string) => void;
+  error: string | null;
+  setError: (val: string | null) => void;
+  retry: () => Promise<void>;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -57,6 +60,8 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [activeThreadId, setActiveThreadId] = useState<string>('general');
   const [loading, setLoading] = useState(false);
   const [attachContext, setAttachContext] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [lastSentText, setLastSentText] = useState<string>('');
 
   // Load threads from localStorage or set initial state
   const [threads, setThreads] = useState<Record<string, ChatThread>>(() => {
@@ -156,6 +161,9 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Main sendMessage routine calling our Python AI backend POST /ai/chat
   const sendMessage = async (text: string) => {
     if (!text.trim()) return;
+
+    setError(null);
+    setLastSentText(text);
 
     const userMsgId = `msg-user-${Date.now()}`;
     const userMsg: ChatMessage = {
@@ -270,7 +278,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
           rawJson = await response.json();
         } catch (_) {}
-        console.warn(`[ChatContext] [REQUEST FAILED] FastAPI backend responded with failure. Status: ${responseStatus}. Fallback reason: ${fallbackReason}`);
+        console.warn(`[ChatContext] [REQUEST FAILED] FastAPI backend responded with failure. Status: ${responseStatus}. Fallback reason: ${fallbackReason}. Body:`, rawJson);
       }
     } catch (err: any) {
       const isTimeout = err.name === 'AbortError';
@@ -279,25 +287,10 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     if (!aiResponseText) {
-      console.log(`[ChatContext] [REQUEST COMPLETED WITH FALLBACK] URL: ${requestUrl} | Status: ${responseStatus} | Parsed JSON:`, rawJson, `| Fallback trigger reason: ${fallbackReason}`);
-    }
-
-    // 4. Fallback default heuristics if FastAPI client is missing or offline, clearly labeled Demo AI
-    if (!aiResponseText) {
-      isLiveResponse = false;
-      const lower = text.toLowerCase();
-      // Emulate our custom python fallback logic exactly on the client side
-      if (lower.includes('report') || lower.includes('injured') || lower.includes('distress')) {
-        aiResponseText = `🚨 **EMERGENCY REPORT ANALYSIS & CO-PILOT TACTICS (DEMO AI - BACKEND OFFLINE)**\n\nLogged reported distress within **${userLocationName}** region. Prepare a cardboard platform, clean thermal blankets, and aseptic bandages immediately.\n\n💡 **TACTICAL STEPS:**\n1. **Contain Perimeter:** Keep children, pets, and crowds 3-5 meters back to avoid panicking the subject.\n2. **Emergency Responders:** Alert nearby NGO teams in your coordinate quadrant:\n${ngosList.slice(0, 2).map((n) => `• ${n.name} (${n.contact})`).join('\n')}\n\n⚠️ **CRITICAL CAUTION:** Avoid giving any water, liquids, or food orally if the animal is lethargic, weak, or shocked. Airway aspiration is highly fatal.`;
-      } else if (lower.includes('vet') || lower.includes('clinic') || lower.includes('hospital')) {
-        aiResponseText = `🏥 **VERIFIED EMERGENCY MEDICINE HUB (DEMO AI - BACKEND OFFLINE)**\n\nCoordinates scanning local animal clinics within ${userLocationName} grid quadrant:\n\n${vetsList.slice(0, 3).map((v) => `• **${v.clinicName}** (${v.name}) — Phone: ${v.contact} (${v.distance} away)`).join('\n')}\n\n👉 **Immediate Directives:** Place a call right now to confirm standard surgeon availability before transporting any fractured cases.`;
-      } else if (lower.includes('ngo') || lower.includes('rescuer') || lower.includes('responder')) {
-        aiResponseText = `🏢 **VERIFIED CO-PILOT NGO EMERGENCY SQUAD (DEMO AI - BACKEND OFFLINE)**\n\nSTANDBY NGO FIRST-RESPONDER LISTING:\n${ngosList.slice(0, 3).map((n) => `• **${n.name}** — Phone: ${n.contact}, Address: ${n.address}`).join('\n')}\n\nAssemble transport kit, transport cages, and thick handlers gloves post-haste.`;
-      } else if (lower.includes('scan') || lower.includes('photo') || lower.includes('image')) {
-        aiResponseText = `📸 **COMPUTER VISION TRIAGE RECOMMENDATION (DEMO AI - BACKEND OFFLINE)**\n\nAnomalies parsed: **${scanExplanation}**.\n\nTriage safety protocol: Wrap the thoracic structure with soft padding. Limit active pacing. Provide an environment isolated from intense street acoustics.`;
-      } else {
-        aiResponseText = `🤖 **COMPAWSS RESCUE OVERWATCH RESPONSE (DEMO AI - BACKEND OFFLINE)**\n\nStanding by as your active rescue co-pilot inside **${userLocationName}** sector.\n\n📍 **Active Node Context:**\n• Active Case: ${activeCase ? `CPW-${activeCase.id}` : 'None Pinned'}\n• Nearby Vets: ${vetsList.length} active clinics\n• Nearby NGOs: ${ngosList.length} local shelters\n\nAsk me how to manage deep laceration bleeding, capture stray felines, map nearby animal responders, or handle visual image scans.`;
-      }
+      console.log(`[ChatContext] [REQUEST COMPLETED WITH ERROR] URL: ${requestUrl} | Status: ${responseStatus} | Parsed JSON:`, rawJson, `| Error reason: ${fallbackReason}`);
+      setError(fallbackReason || 'The Compawss AI backend is currently unreachable.');
+      setLoading(false);
+      return;
     }
 
     const aiMsgId = `msg-ai-${Date.now()}`;
@@ -309,7 +302,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isDemo: !isLiveResponse,
     };
 
-    // 5. Append AI responding message to state
+    // 4. Append AI responding message to state
     setThreads((prev) => {
       const targetThread = prev[activeThreadId] || prev['general'];
       return {
@@ -324,10 +317,9 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     setLoading(false);
 
-    // 6. Supabase Persistence if configured
+    // 5. Supabase Persistence if configured
     try {
       // Safely insert both user and AI logs in Supabase table "chat_messages" if available
-      // Using arbitrary columns matching standard chat schemas
       await safeInsertSupabaseRecord('chat_messages', {
         thread_id: activeThreadId,
         message_id: userMsgId,
@@ -348,6 +340,12 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const retry = async () => {
+    if (lastSentText) {
+      await sendMessage(lastSentText);
+    }
+  };
+
   return (
     <ChatContext.Provider
       value={{
@@ -361,6 +359,9 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         sendMessage,
         clearChat,
         newThread,
+        error,
+        setError,
+        retry,
       }}
     >
       {children}

@@ -28,6 +28,7 @@ import { CompawssLogo } from '../CompawssLogo';
 import { useRescue, INDIAN_LOCALITIES } from '../../context/RescueContext';
 import { useChat } from '../../context/ChatContext';
 import { isSupabaseConfigured } from '../../services/supabaseClient';
+import { useBackendStatus } from '../../services/aiService';
 
 
 /* ==========================================================================
@@ -853,6 +854,7 @@ interface AIAssistantProps {
 
 export const AIAssistantView: React.FC<AIAssistantProps> = ({ onNavigate }) => {
   const { vets, ngos, userLocation, cases } = useRescue();
+  const backendStatus = useBackendStatus();
   const {
     activeThreadId,
     setActiveThreadId,
@@ -864,6 +866,8 @@ export const AIAssistantView: React.FC<AIAssistantProps> = ({ onNavigate }) => {
     sendMessage,
     clearChat,
     newThread,
+    error,
+    retry,
   } = useChat();
 
   const [inputVal, setInputVal] = useState('');
@@ -1079,11 +1083,36 @@ export const AIAssistantView: React.FC<AIAssistantProps> = ({ onNavigate }) => {
                   <span className="h-1.5 w-1.5 rounded-full bg-[#00F2FF] animate-bounce" style={{ animationDelay: '0ms' }} />
                   <span className="h-1.5 w-1.5 rounded-full bg-[#00F2FF] animate-bounce" style={{ animationDelay: '150ms' }} />
                   <span className="h-1.5 w-1.5 rounded-full bg-[#00F2FF] animate-bounce" style={{ animationDelay: '300ms' }} />
-                  <span className="text-[9px] uppercase font-bold font-mono tracking-widest text-[#00F2FF]/75 ml-1">Compawss is triaging...</span>
+                  <span className="text-[9px] uppercase font-bold font-mono tracking-widest text-[#00F2FF]/75 ml-1">
+                    {backendStatus.isWakingUp ? 'Waking backend...' : 'Compawss is triaging...'}
+                  </span>
                 </div>
               </div>
             </div>
           )}
+
+          {/* Inline Link Fault Indicator & Retry Action */}
+          {error && (
+            <div className="flex items-start gap-2.5 w-full justify-start mt-2 mb-2 animate-in fade-in slide-in-from-bottom-2 duration-200">
+              <div className="h-8 w-8 rounded-lg bg-red-500/10 flex items-center justify-center shrink-0 border border-red-500/25 overflow-hidden">
+                <AlertTriangle className="w-4 h-4 text-red-400 animate-pulse" />
+              </div>
+              <div className="max-w-[75%] rounded-2xl px-4 py-3 bg-[#110609] border border-red-500/15 text-white rounded-tl-none">
+                <span className="text-[9px] uppercase font-bold font-mono tracking-widest text-red-500 block mb-1">Co-Pilot Link Fault</span>
+                <p className="text-xs text-red-200/95 leading-relaxed bg-red-950/25 p-2 rounded-lg border border-red-500/10 mb-2.5 break-words">
+                  {error}
+                </p>
+                <button
+                  onClick={() => retry()}
+                  className="px-3 py-1.5 bg-red-900/30 hover:bg-red-500/20 text-red-400 border border-red-500/30 hover:border-red-500 rounded-lg text-xs font-bold transition duration-150 cursor-pointer flex items-center gap-1 uppercase tracking-wide"
+                >
+                  <Activity className="w-3.5 h-3.5 animate-pulse" />
+                  Tap to Retry Action
+                </button>
+              </div>
+            </div>
+          )}
+
           <div ref={messagesEndRef} />
         </div>
 
