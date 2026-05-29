@@ -143,44 +143,8 @@ export const RescueCommandView: React.FC<RescueCommandProps> = ({ onNavigate }) 
         <span>New Dispatch</span>
       </button>
 
-      {/* Predictive AI Alert */}
-      {showDroneScan && (
-        <div className="relative rounded-2xl bg-[#191922] border border-[#4cd7f6]/30 p-5 shadow-2xl">
-          <div className="absolute top-3 right-3 text-[9px] bg-[#4cd7f6]/10 text-[#4cd7f6] font-mono px-2 py-0.5 rounded">
-            92% ACCURACY
-          </div>
-          <div className="space-y-3.5">
-            <div className="flex items-center gap-2">
-              <Cpu className="w-4 h-4 text-[#4cd7f6] shrink-0" />
-              <span className="text-[10px] font-mono text-[#4cd7f6] font-bold uppercase tracking-wider">
-                AI PREDICTIVE ALERT
-              </span>
-            </div>
-            
-            <p className="text-xs text-[#cbc3d7] leading-relaxed">
-              High probability of stray cluster in Sector 7G based on recent thermal imaging satellite sweeps. Recommend preemptive drone deployment.
-            </p>
-
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => {
-                  alert("Deploying Preemptive Drone Search Unit...");
-                  setShowDroneScan(false);
-                }}
-                className="px-4 py-2 rounded-lg text-xs font-semibold text-[#131318] bg-[#4cd7f6] hover:bg-[#03b5d3] transition cursor-pointer"
-              >
-                Deploy Drone
-              </button>
-              <button
-                onClick={() => setShowDroneScan(false)}
-                className="px-4 py-2 rounded-lg text-xs font-semibold text-[#cbc3d7]/50 bg-white/5 hover:bg-white/10 transition cursor-pointer"
-              >
-                Dismiss
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Predictive AI Alert - Only shown when real backend data available */}
+      {/* Removed fake "Sector 7G" alert - will be implemented with real backend predictions */}
 
       {/* Dynamic Vets Section (Requested!) */}
       <div className="space-y-3.5">
@@ -193,8 +157,11 @@ export const RescueCommandView: React.FC<RescueCommandProps> = ({ onNavigate }) 
 
         <div className="space-y-3">
           {vets.length === 0 ? (
-            <div className="p-4 rounded-xl border border-white/5 bg-[#17171c] text-center text-xs text-[#cbc3d7]/50 font-mono">
-              Fetching nearest specialized care clinic...
+            <div className="p-4 rounded-xl border border-white/5 bg-[#17171c] text-center space-y-2">
+              <p className="text-xs text-[#cbc3d7]/70 font-mono">No veterinary clinics found nearby.</p>
+              <p className="text-[10px] text-[#cbc3d7]/50 font-mono">
+                Configure Supabase or Google Places API to discover nearby vets.
+              </p>
             </div>
           ) : (
             vets.map((vet) => (

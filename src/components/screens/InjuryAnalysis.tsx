@@ -162,59 +162,78 @@ interface VoiceReportingProps {
 }
 
 export const VoiceReportingView: React.FC<VoiceReportingProps> = ({ onNavigate }) => {
+  const { userLocation, requestGpsPermission, gpsPermission } = useRescue();
   const [activePreset, setActivePreset] = useState<'dog' | 'kitten' | 'manual'>('dog');
   const [lang, setLang] = useState<'en' | 'hi' | 'bn'>('en');
   
-  // Media capture state
+  // Media capture state - NO FAKE IMAGE
   const [capturedMedia, setCapturedMedia] = useState<{ type: 'photo' | 'video' | 'none'; url: string | null }>({
-    type: 'photo',
-    url: PRESETS.dog.image
+    type: 'none',
+    url: null
   });
   const [isLiveCamera, setIsLiveCamera] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
-  // Voice recording simulation states
+  // Voice recording states - NO FAKE DATA
   const [voiceState, setVoiceState] = useState<'idle' | 'recording' | 'paused' | 'playback'>('idle');
   const [voiceSeconds, setVoiceSeconds] = useState(0);
-  const [transcription, setTranscription] = useState(PRESETS.dog.transcriptions.en);
+  const [transcription, setTranscription] = useState(''); // Empty by default - user must record or type
   const [isPlaybackPlaying, setIsPlaybackPlaying] = useState(false);
   const [audioPlaybackProgress, setAudioPlaybackProgress] = useState(0);
+  const [recordedAudioBlob, setRecordedAudioBlob] = useState<Blob | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
   
-  // Dynamic fields
-  const [severity, setSeverity] = useState<'Critical' | 'Urgent' | 'Moderate' | 'Unknown'>('Critical');
-  const [selectedTags, setSelectedTags] = useState<string[]>(['bleeding', 'unable to walk', 'hit by vehicle']);
+  // Dynamic fields - NO FAKE DEFAULTS
+  const [severity, setSeverity] = useState<'Critical' | 'Urgent' | 'Moderate' | 'Unknown'>('Unknown');
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [animalCount, setAnimalCount] = useState<number>(1);
-  const [landmark, setLandmark] = useState<string>('Sree Krishna Sweets Corner');
-  const [locationNotes, setLocationNotes] = useState<string>('Under a vegetable seller cart');
-  const [immediateDanger, setImmediateDanger] = useState<boolean>(true);
+  const [landmark, setLandmark] = useState<string>(''); // Empty - user must provide
+  const [locationNotes, setLocationNotes] = useState<string>(''); // Empty - user must provide
+  const [immediateDanger, setImmediateDanger] = useState<boolean>(false);
   const [anonymous, setAnonymous] = useState<boolean>(false);
   
   // Waveform animation mock values
   const [equalizerHeights, setEqualizerHeights] = useState<number[]>([12, 12, 12, 12, 12, 12, 12, 12, 12, 12]);
 
-  // Handle Preset Switching
+  // Handle Preset Switching - ONLY FOR DEMO MODE
   const applyPreset = (presetKey: 'dog' | 'kitten' | 'manual') => {
     setActivePreset(presetKey);
-    const p = PRESETS[presetKey];
-    setSeverity(p.severity);
-    setSelectedTags([...p.tags]);
-    setAnimalCount(p.count);
-    setLandmark(p.landmark);
-    setLocationNotes(p.notes);
-    setTranscription(p.transcriptions[lang]);
     
-    if (presetKey === 'manual') {
-      setCapturedMedia({ type: 'none', url: null });
+    // Only auto-fill if in demo mode
+    if (getDemoMode()) {
+      const p = PRESETS[presetKey];
+      setSeverity(p.severity);
+      setSelectedTags([...p.tags]);
+      setAnimalCount(p.count);
+      setLandmark(p.landmark);
+      setLocationNotes(p.notes);
+      setTranscription(p.transcriptions[lang]);
+      
+      if (presetKey === 'manual') {
+        setCapturedMedia({ type: 'none', url: null });
+      } else {
+        setCapturedMedia({ type: 'photo', url: p.image });
+      }
     } else {
-      setCapturedMedia({ type: 'photo', url: p.image });
+      // In normal mode, just set the species hint
+      setSeverity('Unknown');
+      setSelectedTags([]);
+      setAnimalCount(1);
+      setLandmark('');
+      setLocationNotes('');
+      setTranscription('');
+      setCapturedMedia({ type: 'none', url: null });
     }
   };
 
-  // Sync translation when language switcher is toggled
+  // Sync translation when language switcher is toggled - ONLY IN DEMO MODE
   useEffect(() => {
-    setTranscription(PRESETS[activePreset].transcriptions[lang]);
+    if (getDemoMode()) {
+      setTranscription(PRESETS[activePreset].transcriptions[lang]);
+    }
   }, [lang, activePreset]);
 
   // Handle Live Camera initiation
@@ -344,32 +363,75 @@ export const VoiceReportingView: React.FC<VoiceReportingProps> = ({ onNavigate }
     return () => clearInterval(timer);
   }, [isPlaybackPlaying]);
 
-  const handleStartVoiceRecord = () => {
-    setVoiceSeconds(0);
-    setVoiceState('recording');
-    setTranscription('');
-    // Live stream word builder simulation
-    let wordIndex = 0;
-    const words = PRESETS[activePreset].transcriptions[lang].split(' ');
-    
-    const textTimer = setInterval(() => {
-      setTranscription(prev => {
-        if (wordIndex < words.length) {
-          const joined = prev + (prev ? ' ' : '') + words[wordIndex];
-          wordIndex++;
-          return joined;
-        } else {
-          clearInterval(textTimer);
-          return prev;
+  const handleStartVoiceRecord = async () => {
+    try {
+      // Request microphone permission
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      
+      // Initialize MediaRecorder
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+      
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
         }
-      });
-    }, 280);
-    
-    // Auto finish recorder after 8 seconds
-    setTimeout(() => {
-      clearInterval(textTimer);
-      setVoiceState('playback');
-    }, 10000);
+      };
+      
+      mediaRecorder.onstop = () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        setRecordedAudioBlob(audioBlob);
+        
+        // Try speech recognition if available
+        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+          const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
+          const recognition = new SpeechRecognition();
+          recognition.lang = lang === 'hi' ? 'hi-IN' : lang === 'bn' ? 'bn-IN' : 'en-IN';
+          recognition.continuous = false;
+          recognition.interimResults = false;
+          
+          recognition.onresult = (event: any) => {
+            const transcript = event.results[0][0].transcript;
+            setTranscription(transcript);
+            console.log('[REAL_MICROPHONE] Speech-to-text result:', transcript);
+          };
+          
+          recognition.onerror = (event: any) => {
+            console.warn('[REAL_MICROPHONE] Speech recognition error:', event.error);
+            setTranscription('[Audio recorded, transcription unavailable. Please type your report.]');
+          };
+          
+          recognition.start();
+        } else {
+          console.warn('[REAL_MICROPHONE] Speech recognition not available in this browser');
+          setTranscription('[Audio recorded, transcription unavailable. Please type your report.]');
+        }
+        
+        // Stop all tracks
+        stream.getTracks().forEach(track => track.stop());
+        setVoiceState('playback');
+      };
+      
+      // Start recording
+      mediaRecorder.start();
+      setVoiceSeconds(0);
+      setVoiceState('recording');
+      setTranscription('');
+      console.log('[REAL_MICROPHONE] Recording started');
+      
+    } catch (error) {
+      console.error('[REAL_MICROPHONE] Microphone access denied or error:', error);
+      alert('Microphone access denied. Please allow microphone permission or type your report manually.');
+      setVoiceState('idle');
+    }
+  };
+  
+  const handleStopVoiceRecord = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      mediaRecorderRef.current.stop();
+      console.log('[REAL_MICROPHONE] Recording stopped');
+    }
   };
 
   // Reactively respond to CTA redirects from the Empty Scan state
@@ -667,9 +729,7 @@ export const VoiceReportingView: React.FC<VoiceReportingProps> = ({ onNavigate }
             <button
               onClick={() => {
                 if (voiceState === 'recording') {
-                  setVoiceState('paused');
-                } else if (voiceState === 'paused') {
-                  setVoiceState('recording');
+                  handleStopVoiceRecord();
                 } else if (voiceState === 'idle') {
                   handleStartVoiceRecord();
                 } else {
@@ -733,11 +793,14 @@ export const VoiceReportingView: React.FC<VoiceReportingProps> = ({ onNavigate }
               <div className="h-full bg-cyan-400 transition-all duration-300" style={{ width: `${audioPlaybackProgress}%` }} />
             </div>
 
-            <button 
+            <button
               onClick={() => {
                 setVoiceSeconds(0);
                 setVoiceState('idle');
-                setTranscription(PRESETS[activePreset].transcriptions[lang]);
+                setTranscription(''); // Clear transcription for re-recording
+                if (recordedAudioBlob.current) {
+                  recordedAudioBlob.current = null;
+                }
               }}
               className="p-1 px-2.5 bg-white/5 border border-white/10 text-[#cbc3d7] hover:text-white rounded-lg text-[9px] font-mono font-bold"
             >
@@ -924,16 +987,41 @@ export const VoiceReportingView: React.FC<VoiceReportingProps> = ({ onNavigate }
           </button>
         </div>
 
-        {/* Built-in GPS Resolver Info banner */}
-        <div className="p-3 bg-gradient-to-r from-green-500/5 to-transparent border border-green-500/20 rounded-xl flex items-center gap-2.5">
-          <MapPin className="w-5 h-5 text-green-400 shrink-0 animate-bounce" />
-          <div className="space-y-0.5">
-            <span className="text-[9px] font-mono text-green-400 font-black uppercase tracking-widest block leading-none">AUTOMATIC GROUND GPS LOCK</span>
-            <p className="text-[9px] text-[#cbc3d7]/70 font-mono">
-              [LAT: 22.5726° N, LON: 88.3639° E] • Sector 4, Salt Lake, Kolkata • Accuracy: ±4.2m
-            </p>
+        {/* Real GPS Location Display */}
+        {userLocation.latitude && userLocation.longitude ? (
+          <div className="p-3 bg-gradient-to-r from-green-500/5 to-transparent border border-green-500/20 rounded-xl flex items-center gap-2.5">
+            <MapPin className="w-5 h-5 text-green-400 shrink-0" />
+            <div className="space-y-0.5">
+              <span className="text-[9px] font-mono text-green-400 font-black uppercase tracking-widest block leading-none">GPS LOCATION CONFIRMED</span>
+              <p className="text-[9px] text-[#cbc3d7]/70 font-mono">
+                [LAT: {userLocation.latitude.toFixed(4)}° N, LON: {userLocation.longitude.toFixed(4)}° E] • {userLocation.name || 'Location detected'}
+              </p>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="p-3 bg-gradient-to-r from-yellow-500/5 to-transparent border border-yellow-500/20 rounded-xl">
+            <div className="flex items-center gap-2.5 mb-2">
+              <MapPin className="w-5 h-5 text-yellow-400 shrink-0" />
+              <div className="flex-1 space-y-0.5">
+                <span className="text-[9px] font-mono text-yellow-400 font-black uppercase tracking-widest block leading-none">⚠️ LOCATION REQUIRED</span>
+                <p className="text-[9px] text-[#cbc3d7]/70 font-mono">
+                  Enable GPS for accurate location or enter manually in landmark field
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={requestGpsPermission}
+              disabled={gpsPermission === 'denied'}
+              className={`w-full py-2 px-3 rounded-lg text-[9px] font-mono font-bold uppercase tracking-wider transition-all ${
+                gpsPermission === 'denied'
+                  ? 'bg-red-500/10 border border-red-500/30 text-red-400 cursor-not-allowed'
+                  : 'bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/20'
+              }`}
+            >
+              {gpsPermission === 'denied' ? '🚫 GPS Permission Denied' : '📍 Request GPS Permission'}
+            </button>
+          </div>
+        )}
 
       </div>
 

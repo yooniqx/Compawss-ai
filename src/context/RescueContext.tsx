@@ -74,6 +74,7 @@ interface RescueContextType {
   stats: DashboardStat;
   isOffline: boolean;
   setIsOffline: (val: boolean) => void;
+  realNetworkStatus: boolean;
   offlineQueue: any[];
   
   // Geolocation states
@@ -195,6 +196,7 @@ export const RescueProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [stats, setStats] = useState<DashboardStat>(INITIAL_STATS);
   const [isOffline, setIsOffline] = useState(false);
   const [offlineQueue, setOfflineQueue] = useState<any[]>([]);
+  const [realNetworkStatus, setRealNetworkStatus] = useState<boolean>(navigator.onLine);
   
   // Default user location is Bandra West, Mumbai
   const [userLocation, setUserLocation] = useState({
@@ -302,6 +304,32 @@ export const RescueProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     return () => {
       supabase.removeChannel(channel);
+    };
+  }, []);
+
+  // Real network status detection
+  useEffect(() => {
+    const handleOnline = () => {
+      setRealNetworkStatus(true);
+      console.log('[NETWORK_STATUS] Real network connection restored');
+    };
+    
+    const handleOffline = () => {
+      setRealNetworkStatus(false);
+      console.log('[NETWORK_STATUS] Real network connection lost');
+      addNotification(
+        'Network Connection Lost',
+        'Your device is offline. Reports will be queued locally.',
+        'Urgent'
+      );
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
     };
   }, []);
 
@@ -826,6 +854,7 @@ export const RescueProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       stats,
       isOffline,
       setIsOffline,
+      realNetworkStatus,
       offlineQueue,
       userLocation,
       setUserLocation,

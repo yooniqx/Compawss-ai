@@ -147,8 +147,10 @@ export async function findNearbyVets(
 
   // --- QUERY 2: TRY FETCHING FROM SUPABASE 'veterinarians' TABLE ---
   if (isSupabaseConfigured()) {
+    console.log('[SUPABASE_RESPONSE] Querying veterinarians table...');
     const dbVets = await safeFetchSupabaseTable<SupabaseRecord>('veterinarians');
     if (dbVets && dbVets.length > 0) {
+      console.log(`[SUPABASE_RESPONSE] ✅ Found ${dbVets.length} vets from Supabase`);
       return dbVets.map(row => {
         const dKm = calculateHaversineDistance(latitude, longitude, row.latitude, row.longitude);
         const isVerified = row.verified_status?.toLowerCase() === 'verified' || row.verified_status?.toLowerCase() === 'approved';
@@ -171,71 +173,11 @@ export async function findNearbyVets(
     }
   }
 
-  // FALLBACK DATA: Curated list of verified Indian Veterinary Hospitals & Clinics (Clearly Labeled Demo Data)
-  const fallbackVets: Vet[] = [
-    {
-      id: 'vet-1',
-      name: 'Dr. Shalini Mukherji',
-      clinicName: 'Crown Veterinary Hospital',
-      address: 'Bandra West, Link Road, Mumbai, Maharashtra 400050',
-      contact: '+91 22 6123 0000',
-      specialties: ['Orthopedic Surgery', 'Trauma Resuscitation', 'Infectious Stray Triage'],
-      distance: formatDistance(calculateHaversineDistance(latitude, longitude, 19.0544, 72.8402)),
-      available24x7: true,
-      emergencyVitalsMonitorCapable: true,
-      image: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&q=80&w=300',
-      source: 'Demo Data',
-      openingStatus: 'Open 24/7 (Emergency Service)',
-      type: 'Triage Hospital'
-    },
-    {
-      id: 'vet-2',
-      name: 'Dr. Rohan Desai',
-      clinicName: 'Koramangala Pet Care Clinic',
-      address: '8th Block, Koramangala, Bangalore, Karnataka 560095',
-      contact: '+91 80 4353 1212',
-      specialties: ['Canine Rehabilitation', 'Water dehydration therapy'],
-      distance: formatDistance(calculateHaversineDistance(latitude, longitude, 12.9352, 77.6245)),
-      available24x7: false,
-      emergencyVitalsMonitorCapable: true,
-      image: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&q=80&w=300',
-      source: 'Demo Data',
-      openingStatus: 'Open until 9:00 PM',
-      type: 'Primary Care Center'
-    },
-    {
-      id: 'vet-3',
-      name: 'Dr. Amit Sharma',
-      clinicName: 'Friendicoes SECA Emergency Clinic',
-      address: 'No. 270, Defence Colony Flyover Market, New Delhi 110024',
-      contact: '+91 11 2432 0270',
-      specialties: ['Severe Burn Recovery', 'Critical Care', 'Parvovirus Quarantine'],
-      distance: formatDistance(calculateHaversineDistance(latitude, longitude, 28.5724, 77.2345)),
-      available24x7: true,
-      emergencyVitalsMonitorCapable: true,
-      image: 'https://images.unsplash.com/photo-1537368910025-700350fe46c7?auto=format&fit=crop&q=80&w=300',
-      source: 'Demo Data',
-      openingStatus: 'Open 24/7 (Emergency Shelter)',
-      type: 'Stray Shelter & Ambulance Post'
-    },
-    {
-      id: 'vet-4',
-      name: 'Veterinary Clinic & Shelter Bavdhan',
-      clinicName: 'RESQ Charitable Clinic',
-      address: 'Bavdhan, Pune-Bengaluru Highway, Pune 411021',
-      contact: '+91 91722 21212',
-      specialties: ['Wildlife Trauma', 'Large Animal Surgery', 'Thermal Burns recovery'],
-      distance: formatDistance(calculateHaversineDistance(latitude, longitude, 18.5132, 73.7825)),
-      available24x7: true,
-      emergencyVitalsMonitorCapable: true,
-      image: 'https://images.unsplash.com/photo-1576091160550-2173dba999ef?auto=format&fit=crop&q=80&w=300',
-      source: 'Demo Data',
-      openingStatus: 'Open 24/7',
-      type: 'Charitable Veterinary NGO Center'
-    }
-  ];
-
-  return fallbackVets.sort((a, b) => parseFloat(a.distance) - parseFloat(b.distance));
+  // When Supabase is not configured, return empty array to show proper empty state
+  // Users should configure Supabase or use backend API to get real vet data
+  console.warn('[DEMO_FALLBACK] ⚠️ No Supabase configuration. Returning empty vet list.');
+  console.warn('[DEMO_FALLBACK] Configure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to get real data.');
+  return [];
 }
 
 /* ==========================================================================
@@ -253,8 +195,10 @@ export async function fetchNearbyNGOs(
 ): Promise<NGO[]> {
   // Try querying dynamic Supabase Table 'ngos'
   if (isSupabaseConfigured()) {
+    console.log('[SUPABASE_RESPONSE] Querying ngos table...');
     const dbNgos = await safeFetchSupabaseTable<SupabaseRecord>('ngos');
     if (dbNgos && dbNgos.length > 0) {
+      console.log(`[SUPABASE_RESPONSE] ✅ Found ${dbNgos.length} NGOs from Supabase`);
       return dbNgos.map(row => {
         const dKm = calculateHaversineDistance(latitude, longitude, row.latitude, row.longitude);
         const isVerified = row.verified_status?.toLowerCase() === 'verified' || row.verified_status?.toLowerCase() === 'approved';
@@ -278,65 +222,11 @@ export async function fetchNearbyNGOs(
     }
   }
 
-  // FALLBACK DATA: Curated list of verified Indian Animal NGOs (Labeled Demo Data)
-  const curatedNGOs: NGO[] = [
-    {
-      id: 'ngo-1',
-      name: 'Stray Relief India (SRI)',
-      city: 'Mumbai',
-      address: 'Andheri West, Near Azad Nagar Metro Station, Mumbai 400053',
-      contact: '+91 22 2673 0912',
-      coverageAreas: ['Andheri', 'Bandra', 'Juhu', 'Khar', 'Vile Parle'],
-      capacity: { dogs: { current: 48, max: 60 }, cats: { current: 18, max: 25 }, cattle: { current: 4, max: 10 } },
-      rating: 4.8,
-      source: 'Demo Data',
-      openingStatus: 'Ambulance dispatch active',
-      type: 'NGO Stray Shelter'
-    },
-    {
-      id: 'ngo-2',
-      name: 'Compassion Unlimited Plus Action (CUPA)',
-      city: 'Bangalore',
-      address: 'RT Nagar, Veterinary College Campus, Bangalore 560032',
-      contact: '+91 80 2294 7300',
-      coverageAreas: ['Koramangala', 'Indiranagar', 'RT Nagar', 'Hebbal', 'HSR Layout'],
-      capacity: { dogs: { current: 72, max: 80 }, cats: { current: 30, max: 40 } },
-      rating: 4.9,
-      source: 'Demo Data',
-      openingStatus: 'Intake open',
-      type: 'NGO Wildlife & Pet Recovery'
-    },
-    {
-      id: 'ngo-3',
-      name: 'RESQ Charitable Trust',
-      city: 'Pune',
-      address: 'Bavdhan, Pune-Bengaluru Highway, Pune 411021',
-      contact: '+91 91722 21212',
-      coverageAreas: ['Bavdhan', 'Kothrud', 'Aundh', 'Baner', 'Shivajinagar'],
-      capacity: { dogs: { current: 110, max: 120 }, cats: { current: 35, max: 50 }, cattle: { current: 12, max: 15 } },
-      rating: 4.9,
-      source: 'Demo Data',
-      openingStatus: '24 Hours Emergency Intake',
-      type: 'NGO Rescue Ops'
-    },
-    {
-      id: 'ngo-4',
-      name: 'Sanjay Gandhi Animal Care Hospital',
-      city: 'New Delhi',
-      address: 'Shivaji Marg, Near Raja Garden, New Delhi 110027',
-      contact: '+91 11 2544 7751',
-      coverageAreas: ['West Delhi', 'Defence Colony', 'Saket', 'Gurugram'],
-      capacity: { dogs: { current: 150, max: 200 }, cats: { current: 40, max: 60 }, cattle: { current: 30, max: 50 } },
-      rating: 4.6,
-      source: 'Demo Data',
-      openingStatus: 'Open and responding',
-      type: 'Animal Hospital NGO'
-    }
-  ];
-
-  // Filter based on selected city to keep it locally context-aware!
-  const filtered = curatedNGOs.filter(n => n.city === city);
-  return filtered.length > 0 ? filtered : curatedNGOs;
+  // When Supabase is not configured, return empty array to show proper empty state
+  // Users should configure Supabase or use backend API to get real NGO data
+  console.warn('[DEMO_FALLBACK] ⚠️ No Supabase configuration. Returning empty NGO list.');
+  console.warn('[DEMO_FALLBACK] Configure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to get real data.');
+  return [];
 }
 
 /* ==========================================================================

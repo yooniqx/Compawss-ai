@@ -156,6 +156,7 @@ export const HomeView: React.FC<HomeProps> = ({ onNavigate }) => {
     stats,
     isOffline,
     setIsOffline,
+    realNetworkStatus,
     userLocation,
     gpsPermission,
     requestGpsPermission,
@@ -208,18 +209,33 @@ export const HomeView: React.FC<HomeProps> = ({ onNavigate }) => {
           ))}
         </div>
 
-        {/* Offline Toggle simulation button */}
-        <button
-          onClick={() => setIsOffline(!isOffline)}
-          className={`px-3 py-1 rounded-full text-[9px] font-bold font-mono tracking-wider transition-all flex items-center gap-1 cursor-pointer ${
-            isOffline 
-              ? 'bg-red-500/20 text-red-400 border border-red-500/30' 
-              : 'bg-green-500/10 text-green-400 border border-green-500/20'
+        {/* Network Status & Test Mode Toggle */}
+        <div className="flex gap-2 items-center">
+          {/* Real Network Status Indicator */}
+          <div className={`px-2 py-1 rounded-full text-[8px] font-bold font-mono tracking-wider flex items-center gap-1 ${
+            realNetworkStatus
+              ? 'bg-green-500/10 text-green-400 border border-green-500/20'
+              : 'bg-red-500/20 text-red-400 border border-red-500/30'
           }`}
-        >
-          <span className={`h-1.5 w-1.5 rounded-full ${isOffline ? 'bg-red-500 animate-ping' : 'bg-green-400'}`} />
-          {isOffline ? "OFFLINE ACTIVE" : "ONLINE CONNECTED"}
-        </button>
+          title={realNetworkStatus ? "Device is online" : "Device is offline"}
+          >
+            <span className={`h-1 w-1 rounded-full ${realNetworkStatus ? 'bg-green-400' : 'bg-red-500 animate-ping'}`} />
+            {realNetworkStatus ? "ONLINE" : "OFFLINE"}
+          </div>
+          
+          {/* Test Mode Toggle */}
+          <button
+            onClick={() => setIsOffline(!isOffline)}
+            className={`px-2 py-1 rounded-full text-[8px] font-bold font-mono tracking-wider transition-all flex items-center gap-1 cursor-pointer ${
+              isOffline
+                ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                : 'bg-white/5 text-[#cbc3d7]/60 border border-white/10'
+            }`}
+            title="Toggle offline test mode for development"
+          >
+            {isOffline ? "TEST MODE" : "TEST OFF"}
+          </button>
+        </div>
       </div>
 
       {/* GPS Locate & Indian Locality Selector Station */}

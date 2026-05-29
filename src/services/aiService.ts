@@ -76,6 +76,7 @@ export function determineOnlineFromResponse(status: number, data: any): { isOnli
     const statusLower = parsedStatus.toLowerCase();
     const matchesStatus = ["ok", "healthy", "online"].includes(statusLower);
     const isReady = data.ready === true;
+    // Fixed: Should be online if HTTP 200 OR status matches OR ready is true
     isOnline = (status === 200) || matchesStatus || isReady;
   } else if (status === 200) {
     isOnline = true;
@@ -204,10 +205,11 @@ export async function checkBackendHealth(forceCheck = false): Promise<boolean> {
 async function apiRequest<T>(endpoint: string, payload: any, fallbackData: T): Promise<{ data: T; isLive: boolean }> {
   const requestUrl = `${BACKEND_URL}${endpoint}`;
   const requestStart = new Date().toISOString();
-  console.log(`[aiService] [REQUEST START] URL: ${requestUrl} | Endpoint: ${endpoint} | Start: ${requestStart}`);
+  console.log(`[aiService] [REQUEST START] URL: ${requestUrl} | Endpoint: ${endpoint} | Start: ${requestStart} | Payload:`, payload);
 
   if (!globalBackendStatus.isLive) {
-    console.log(`[aiService] [FALLBACK ACTIVE] Backend is registered as OFFLINE/DEMO. Triggering mock fallback directly. Reason: Central Status Offline.`);
+    console.warn(`[DEMO_FALLBACK] ⚠️ Backend is OFFLINE. Using fallback data for ${endpoint}. This is NOT real AI.`);
+    console.log(`[DEMO_FALLBACK] Fallback data:`, fallbackData);
     return { data: fallbackData, isLive: false };
   }
 
@@ -241,7 +243,9 @@ async function apiRequest<T>(endpoint: string, payload: any, fallbackData: T): P
       const json = await response.json();
       rawJson = json;
       
-      console.log(`[aiService] [REQUEST SUCCESS] URL: ${requestUrl} | Status: ${responseStatus} | Parsed JSON:`, json);
+      console.log(`[LIVE_BACKEND] ✅ Real AI response from ${endpoint}`);
+      console.log(`[LIVE_BACKEND] Status: ${responseStatus} | Duration: ${duration}ms`);
+      console.log(`[GEMINI_RESPONSE] Response data:`, json);
       
       // Update our centralized stats reactive to live responses
       updateBackendStatus({
@@ -267,7 +271,9 @@ async function apiRequest<T>(endpoint: string, payload: any, fallbackData: T): P
     clearTimeout(timeoutId);
   }
 
-  console.log(`[aiService] [REQUEST COMPLETED WITH FALLBACK] URL: ${requestUrl} | Status: ${responseStatus} | Parsed JSON:`, rawJson, `| Fallback trigger reason: ${fallbackReason}`);
+  console.warn(`[DEMO_FALLBACK] ⚠️ Backend request failed for ${endpoint}. Using fallback data.`);
+  console.warn(`[DEMO_FALLBACK] Reason: ${fallbackReason} | Status: ${responseStatus}`);
+  console.log(`[DEMO_FALLBACK] Fallback data:`, fallbackData);
 
   // If we had a successful connection before but this particular request failed/timed out,
   // we check health again in the background to see if we lost the backend
@@ -487,27 +493,8 @@ export async function matchResponders(
 }> {
   const fallback = {
     incident_coordinates: { lat: latitude, lng: longitude },
-    matched_responders: [
-      {
-        id: "resp-match-1",
-        name: "Crown Veterinary Emergency Surge Post",
-        type: "Triage Hospital & Trauma Unit",
-        phone: "+91 22 6123 0000",
-        distance_km: 1.2,
-        status: "Active Duty",
-        estimated_arrival_minutes: 8
-      },
-      {
-        id: "resp-match-2",
-        name: "Stray Relief India Scout Team A",
-        type: "NGO Field Ambulance Squad",
-        phone: "+91 22 2673 0912",
-        distance_km: 2.7,
-        status: "Responding To Dispatch",
-        estimated_arrival_minutes: 15
-      }
-    ],
-    ambulance_allocated: severity === "Critical"
+    matched_responders: [],
+    ambulance_allocated: false
   };
 
   const payload = { latitude, longitude, severity, species };

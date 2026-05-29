@@ -236,6 +236,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const requestUrl = `${BACKEND_URL}/ai/chat`;
     const requestStart = new Date().toISOString();
     console.log(`[ChatContext] [REQUEST START] URL: ${requestUrl} | Endpoint: /ai/chat | Start: ${requestStart}`);
+    console.log(`[ChatContext] Payload:`, payload);
 
     let responseStatus = 0;
     let rawJson: any = null;
@@ -266,7 +267,9 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isLiveResponse = data.is_live;
 
         const duration = Date.now() - startMs;
-        console.log(`[ChatContext] [REQUEST SUCCESS] URL: ${requestUrl} | Status: ${responseStatus} | Parsed JSON:`, data);
+        console.log(`[LIVE_BACKEND] ✅ Real AI chat response received`);
+        console.log(`[LIVE_BACKEND] Status: ${responseStatus} | Duration: ${duration}ms`);
+        console.log(`[GEMINI_RESPONSE] is_live: ${isLiveResponse} | Response:`, aiResponseText);
         updateBackendStatus({
           isLive: true,
           lastSuccessfulCall: new Date().toLocaleTimeString(),
@@ -287,7 +290,8 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     if (!aiResponseText) {
-      console.log(`[ChatContext] [REQUEST COMPLETED WITH ERROR] URL: ${requestUrl} | Status: ${responseStatus} | Parsed JSON:`, rawJson, `| Error reason: ${fallbackReason}`);
+      console.error(`[ERROR_HANDLING] ⚠️ Chat backend request failed. No AI response received.`);
+      console.error(`[ERROR_HANDLING] Reason: ${fallbackReason} | Status: ${responseStatus}`);
       setError(fallbackReason || 'The Compawss AI backend is currently unreachable.');
       setLoading(false);
       return;
