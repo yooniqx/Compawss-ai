@@ -870,11 +870,12 @@ async def ai_chat(payload: ChatRequest):
             "User-Agent": "compawss-ai-backend"
         }
         
+        # Prepend system instruction to first user message for v1 API compatibility
+        if conversation and system_instruction:
+            conversation[0]["parts"][0]["text"] = f"{system_instruction}\n\n{conversation[0]['parts'][0]['text']}"
+        
         gemini_payload = {
             "contents": conversation,
-            "systemInstruction": {
-                "parts": [{"text": system_instruction}]
-            },
             "generationConfig": {
                 "temperature": 0.3,
                 "maxOutputTokens": 500  # Limit response length
