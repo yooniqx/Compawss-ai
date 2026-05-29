@@ -174,7 +174,7 @@ async def call_gemini_api(prompt: str, system_instruction: Optional[str] = None,
         return None
     
     try:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
+        url = f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
         headers = {
             "Content-Type": "application/json",
             "User-Agent": "compawss-ai-backend"
@@ -453,7 +453,7 @@ async def analyze_image(payload: AnalyzeImageRequest):
             }
         }
 
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
+        url = f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
         headers = {
             "Content-Type": "application/json",
             "User-Agent": "compawss-ai-backend"
@@ -864,7 +864,7 @@ async def ai_chat(payload: ChatRequest):
     
     # Call Gemini API
     try:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
+        url = f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
         headers = {
             "Content-Type": "application/json",
             "User-Agent": "compawss-ai-backend"
