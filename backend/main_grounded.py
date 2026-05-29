@@ -180,22 +180,22 @@ async def call_gemini_api(prompt: str, system_instruction: Optional[str] = None,
             "User-Agent": "compawss-ai-backend"
         }
         
+        # Combine system instruction with user prompt for v1 API
+        full_prompt = prompt
+        if system_instruction:
+            full_prompt = f"{system_instruction}\n\n{prompt}"
+        
         payload = {
             "contents": [
                 {
                     "role": "user",
-                    "parts": [{"text": prompt}]
+                    "parts": [{"text": full_prompt}]
                 }
             ],
             "generationConfig": {
                 "temperature": temperature
             }
         }
-        
-        if system_instruction:
-            payload["systemInstruction"] = {
-                "parts": [{"text": system_instruction}]
-            }
         
         async with httpx.AsyncClient() as client:
             response = await client.post(url, json=payload, headers=headers, timeout=15.0)
