@@ -852,9 +852,7 @@ export const VoiceReportingView: React.FC<VoiceReportingProps> = ({ onNavigate }
                 setVoiceSeconds(0);
                 setVoiceState('idle');
                 setTranscription(''); // Clear transcription for re-recording
-                if (recordedAudioBlob.current) {
-                  recordedAudioBlob.current = null;
-                }
+                setRecordedAudioBlob(null); // Clear recorded audio blob
               }}
               className="p-1 px-2.5 bg-white/5 border border-white/10 text-[#cbc3d7] hover:text-white rounded-lg text-[9px] font-mono font-bold"
             >
