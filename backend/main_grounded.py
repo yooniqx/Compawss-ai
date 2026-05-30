@@ -11,6 +11,14 @@ from dotenv import load_dotenv
 # Load environment variables from .env file
 load_dotenv()
 
+# Import knowledge base
+from knowledge_base import (
+    get_knowledge_by_keywords,
+    get_knowledge_by_intent,
+    classify_intent,
+    ANIMAL_RESCUE_KNOWLEDGE
+)
+
 app = FastAPI(
     title="Compawss AI Emergency Dispatch Backend",
     description="Python microservice supplying advanced triage, computer vision, and linguistic services for stray animal rescue operations in India.",
@@ -493,6 +501,86 @@ async def debug_gemini():
     
     return debug_info
 
+# ============================================================================
+# KNOWLEDGE BASE ENDPOINTS
+# ============================================================================
+
+@app.get("/ai/intent")
+async def classify_query_intent(query: str):
+    """
+    Classify user query intent for routing to appropriate knowledge/data sources.
+    
+    Returns:
+        - intent: first_aid, pet_care, emergency_rescue, nearby_vet, nearby_ngo,
+                  image_analysis, report_help, general_question
+        - confidence: high, medium, low
+        - keywords_matched: list of matched keywords
+    """
+    intent = classify_intent(query)
+    
+    # Determine confidence based on keyword matches
+    query_lower = query.lower()
+    keywords_matched = []
+    confidence = "low"
+    
+    # Check for strong intent indicators
+    if intent == "nearby_vet":
+        vet_keywords = ["vet", "veterinary", "clinic", "hospital", "doctor", "near", "nearby", "emergency"]
+        keywords_matched = [kw for kw in vet_keywords if kw in query_lower]
+        confidence = "high" if len(keywords_matched) >= 2 else "medium"
+    
+    elif intent == "nearby_ngo":
+        ngo_keywords = ["ngo", "shelter", "rescue", "organization", "adopt", "near", "nearby"]
+        keywords_matched = [kw for kw in ngo_keywords if kw in query_lower]
+        confidence = "high" if len(keywords_matched) >= 2 else "medium"
+    
+    elif intent == "first_aid":
+        first_aid_keywords = ["bleeding", "wound", "injury", "hurt", "pain", "first aid", "help", "emergency"]
+        keywords_matched = [kw for kw in first_aid_keywords if kw in query_lower]
+        confidence = "high" if len(keywords_matched) >= 1 else "medium"
+    
+    elif intent == "emergency_rescue":
+        emergency_keywords = ["emergency", "urgent", "critical", "dying", "severe", "accident", "hit by car"]
+        keywords_matched = [kw for kw in emergency_keywords if kw in query_lower]
+        confidence = "high" if len(keywords_matched) >= 1 else "medium"
+    
+    else:
+        confidence = "medium"
+    
+    return {
+        "query": query,
+        "intent": intent,
+        "confidence": confidence,
+        "keywords_matched": keywords_matched
+    }
+
+@app.get("/ai/knowledge")
+async def query_knowledge_base(query: str, intent: str | None = None):
+    """
+    Query the knowledge base for relevant animal rescue guidance.
+    
+    Parameters:
+        - query: User's question or search terms
+        - intent: Optional pre-classified intent to filter results
+    
+    Returns:
+        - entries: List of relevant knowledge base entries
+        - total_found: Number of matching entries
+    """
+    if intent:
+        # Filter by intent first
+        entries = get_knowledge_by_intent(intent)
+    else:
+        # Search by keywords
+        entries = get_knowledge_by_keywords(query)
+    
+    return {
+        "query": query,
+        "intent": intent,
+        "total_found": len(entries),
+        "entries": entries
+    }
+
 @app.post("/ai/analyze-image", response_model=AnalyzeImageResponse)
 async def analyze_image(payload: AnalyzeImageRequest):
     """
@@ -962,6 +1050,36 @@ async def ai_chat(payload: ChatRequest):
             is_live=True
         )
     
+    # ============================================================================
+    # RETRIEVAL-AUGMENTED GENERATION (RAG)
+    # ============================================================================
+    
+    # Step 1: Classify user intent
+    intent = classify_intent(last_user_msg)
+    
+    # Step 2: Retrieve relevant knowledge base entries
+    knowledge_entries = get_knowledge_by_keywords(last_user_msg)
+    
+    # Build knowledge context string
+    knowledge_context = ""
+    if knowledge_entries:
+        knowledge_context = "\n\nRELEVANT KNOWLEDGE BASE:\n"
+        for entry in knowledge_entries[:3]:  # Top 3 most relevant
+            knowledge_context += f"\n### {entry['intent'].upper()} - Emergency Level: {entry['emergency_level']}\n"
+            knowledge_context += f"{entry['guidance']}\n"
+    
+    # Step 3: Fetch location-based data if needed
+    location_data = ""
+    if intent in ["nearby_vet", "nearby_ngo"] and payload.context:
+        if intent == "nearby_vet" and payload.context.userLocationName:
+            location_data = f"\n\nLOCATION QUERY: User is looking for veterinary services near {payload.context.userLocationName}"
+            if payload.context.vetsList:
+                location_data += "\nAvailable vets will be shown in context below."
+        elif intent == "nearby_ngo" and payload.context.userLocationName:
+            location_data = f"\n\nLOCATION QUERY: User is looking for NGO/rescue services near {payload.context.userLocationName}"
+            if payload.context.ngosList:
+                location_data += "\nAvailable NGOs will be shown in context below."
+    
     # Build context from provided data
     loc_str = payload.context.userLocationName if payload.context and payload.context.userLocationName else "Location not provided"
     
@@ -990,7 +1108,7 @@ async def ai_chat(payload: ChatRequest):
     
     scan_info = payload.context.scanExplanation if payload.context and payload.context.scanExplanation else "No image scan data"
     
-    # Build system instruction
+    # Build system instruction with RAG context
     system_instruction = (
         "You are Compawss AI, an animal rescue assistant for India.\n\n"
         "CRITICAL RULES:\n"
@@ -998,7 +1116,12 @@ async def ai_chat(payload: ChatRequest):
         "2. Use ONLY the data provided in context - DO NOT invent clinic names, phone numbers, or addresses\n"
         "3. If data is missing, clearly state 'Data not available' and suggest alternatives\n"
         "4. Be direct, helpful, and action-oriented\n"
-        "5. No fake tactical jargon or dramatic language\n\n"
+        "5. No fake tactical jargon or dramatic language\n"
+        "6. When knowledge base guidance is provided, use it as authoritative source for first aid and rescue procedures\n"
+        "7. For location queries, only mention facilities listed in the context\n\n"
+        f"USER INTENT: {intent}\n"
+        f"{location_data}\n"
+        f"{knowledge_context}\n\n"
         f"CURRENT CONTEXT:\n"
         f"Location: {loc_str}\n"
         f"Active Case: {case_info}\n"
