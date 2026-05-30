@@ -32,7 +32,7 @@ def get_env_var(key: str, default: str = "") -> str:
     return value.strip().replace('"', '').replace("'", "")
 
 GEMINI_API_KEY = get_env_var("GEMINI_API_KEY")
-GEMINI_MODEL = get_env_var("GEMINI_MODEL", "gemini-1.5-pro")
+GEMINI_MODEL = get_env_var("GEMINI_MODEL", "gemini-1.5-flash")
 GOOGLE_MAPS_API_KEY = get_env_var("GOOGLE_MAPS_PLATFORM_KEY")
 GOOGLE_PLACES_API_KEY = get_env_var("GOOGLE_PLACES_API_KEY", GOOGLE_MAPS_API_KEY)
 SUPABASE_URL = get_env_var("SUPABASE_URL")
@@ -41,7 +41,7 @@ DEMO_MODE = get_env_var("DEMO_MODE", "false").lower() == "true"
 
 # Log selected Gemini model at startup
 print(f"[STARTUP] Selected Gemini model: {GEMINI_MODEL}")
-print(f"[STARTUP] API version: v1")
+print(f"[STARTUP] API version: v1beta")
 print(f"[STARTUP] Demo mode: {DEMO_MODE}")
 
 # =============================================================================
@@ -180,7 +180,7 @@ async def call_gemini_api(prompt: str, system_instruction: Optional[str] = None,
         return None
     
     try:
-        url = f"https://generativelanguage.googleapis.com/v1/models/{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
         headers = {
             "Content-Type": "application/json",
             "User-Agent": "compawss-ai-backend"
@@ -353,7 +353,7 @@ async def debug_gemini():
     """
     debug_info = {
         "model": GEMINI_MODEL,
-        "api_version": "v1",
+        "api_version": "v1beta",
         "api_key_configured": bool(GEMINI_API_KEY and GEMINI_API_KEY != "MY_GEMINI_API_KEY"),
         "api_key_prefix": GEMINI_API_KEY[:10] + "..." if GEMINI_API_KEY else "NOT_SET",
         "test_call_result": None,
@@ -363,7 +363,7 @@ async def debug_gemini():
     # Attempt a simple test call to Gemini
     if GEMINI_API_KEY and GEMINI_API_KEY != "MY_GEMINI_API_KEY":
         try:
-            url = f"https://generativelanguage.googleapis.com/v1/models/{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
             headers = {"Content-Type": "application/json"}
             payload = {
                 "contents": [{
@@ -509,7 +509,7 @@ async def analyze_image(payload: AnalyzeImageRequest):
             }
         }
 
-        url = f"https://generativelanguage.googleapis.com/v1/models/{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
         headers = {
             "Content-Type": "application/json",
             "User-Agent": "compawss-ai-backend"
@@ -920,7 +920,7 @@ async def ai_chat(payload: ChatRequest):
     
     # Call Gemini API
     try:
-        url = f"https://generativelanguage.googleapis.com/v1/models/{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
         headers = {
             "Content-Type": "application/json",
             "User-Agent": "compawss-ai-backend"
