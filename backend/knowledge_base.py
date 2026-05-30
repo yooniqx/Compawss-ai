@@ -411,30 +411,43 @@ def classify_intent(query: str) -> str:
     """
     query_lower = query.lower()
     
-    # Location-based queries
-    if any(word in query_lower for word in ["near me", "nearby", "closest", "nearest", "around"]):
-        if any(word in query_lower for word in ["vet", "veterinary", "hospital", "clinic", "doctor"]):
-            return "nearby_vet"
-        if any(word in query_lower for word in ["ngo", "shelter", "rescue", "organization"]):
-            return "nearby_ngo"
+    # Check for veterinary/clinic queries with location
+    # Matches: "vets in mumbai", "vet near me", "animal hospital kolkata", etc.
+    vet_keywords = ["vet", "veterinary", "animal hospital", "pet hospital", "animal clinic", "pet clinic", "animal doctor"]
+    location_keywords = ["in", "at", "near", "nearby", "closest", "nearest", "around", "location", "address", "contact"]
     
-    # Emergency/First aid
-    if any(word in query_lower for word in ["bleeding", "blood", "wound", "injury", "hurt", "pain"]):
-        return "first_aid"
+    has_vet = any(word in query_lower for word in vet_keywords)
+    has_location = any(word in query_lower for word in location_keywords)
     
+    if has_vet and has_location:
+        return "nearby_vet"
+    
+    # Check for NGO/shelter queries with location
+    ngo_keywords = ["ngo", "shelter", "rescue center", "rescue organization", "animal welfare", "animal rescue"]
+    if any(word in query_lower for word in ngo_keywords) and has_location:
+        return "nearby_ngo"
+    
+    # Emergency queries (even without explicit location)
     if any(word in query_lower for word in ["emergency", "urgent", "critical", "dying", "serious"]):
+        # If it mentions vet/hospital, it's an emergency vet query
+        if has_vet:
+            return "emergency_rescue"
         return "emergency_rescue"
     
-    # Pet care
-    if any(word in query_lower for word in ["feed", "food", "care", "newborn", "puppy", "kitten"]):
+    # First aid queries
+    if any(word in query_lower for word in ["bleeding", "blood", "wound", "injury", "hurt", "pain", "broken", "fracture"]):
+        return "first_aid"
+    
+    # Pet care queries
+    if any(word in query_lower for word in ["feed", "food", "care", "newborn", "puppy", "kitten", "baby animal"]):
         return "pet_care"
     
-    # Image analysis
-    if any(word in query_lower for word in ["image", "photo", "picture", "scan", "analyze"]):
+    # Image analysis queries
+    if any(word in query_lower for word in ["image", "photo", "picture", "scan", "analyze", "identify"]):
         return "image_analysis"
     
-    # Report/help
-    if any(word in query_lower for word in ["report", "found", "help", "rescue"]):
+    # Report/help queries
+    if any(word in query_lower for word in ["report", "found", "help", "rescue", "spotted", "saw"]):
         return "report_help"
     
     # Default

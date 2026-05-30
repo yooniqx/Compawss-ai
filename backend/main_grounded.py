@@ -238,54 +238,72 @@ async def call_gemini_api(prompt: str, system_instruction: Optional[str] = None,
     """
     Generic function to call Gemini API with text prompt.
     Returns None if API key is missing or request fails.
+    Includes fallback to alternative models if primary model fails with 503.
     """
     if not GEMINI_API_KEY or GEMINI_API_KEY == "MY_GEMINI_API_KEY":
         print("[call_gemini_api] Gemini API key not configured")
         return None
     
-    try:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
-        headers = {
-            "Content-Type": "application/json",
-            "User-Agent": "compawss-ai-backend"
-        }
-        
-        # Combine system instruction with user prompt for v1 API
-        full_prompt = prompt
-        if system_instruction:
-            full_prompt = f"{system_instruction}\n\n{prompt}"
-        
-        payload = {
-            "contents": [
-                {
-                    "role": "user",
-                    "parts": [{"text": full_prompt}]
-                }
-            ],
-            "generationConfig": {
-                "temperature": temperature
+    # Fallback models to try if primary fails
+    models_to_try = [GEMINI_MODEL, "gemini-1.5-flash", "gemini-1.5-pro", "gemini-pro"]
+    
+    # Combine system instruction with user prompt
+    full_prompt = prompt
+    if system_instruction:
+        full_prompt = f"{system_instruction}\n\n{prompt}"
+    
+    payload = {
+        "contents": [
+            {
+                "role": "user",
+                "parts": [{"text": full_prompt}]
             }
+        ],
+        "generationConfig": {
+            "temperature": temperature
         }
-        
-        async with httpx.AsyncClient() as client:
-            response = await client.post(url, json=payload, headers=headers, timeout=15.0)
+    }
+    
+    headers = {
+        "Content-Type": "application/json",
+        "User-Agent": "compawss-ai-backend"
+    }
+    
+    # Try each model in sequence
+    for model in models_to_try:
+        if not model:
+            continue
             
-            if response.status_code == 200:
-                data = response.json()
-                candidates = data.get("candidates", [])
-                if candidates:
-                    parts = candidates[0].get("content", {}).get("parts", [])
-                    if parts:
-                        text = parts[0].get("text", "")
-                        return text
-                return None
-            else:
-                print(f"[call_gemini_api] Gemini API error: {response.status_code} - {response.text}")
-                return None
+        try:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={GEMINI_API_KEY}"
+            
+            async with httpx.AsyncClient() as client:
+                response = await client.post(url, json=payload, headers=headers, timeout=15.0)
                 
-    except Exception as e:
-        print(f"[call_gemini_api] Exception: {e}")
-        return None
+                if response.status_code == 200:
+                    data = response.json()
+                    candidates = data.get("candidates", [])
+                    if candidates:
+                        parts = candidates[0].get("content", {}).get("parts", [])
+                        if parts:
+                            text = parts[0].get("text", "")
+                            if model != GEMINI_MODEL:
+                                print(f"[call_gemini_api] SUCCESS with fallback model: {model}")
+                            return text
+                    return None
+                elif response.status_code == 503:
+                    print(f"[call_gemini_api] Model {model} unavailable (503), trying next...")
+                    continue  # Try next model
+                else:
+                    print(f"[call_gemini_api] Model {model} error: {response.status_code} - {response.text[:200]}")
+                    continue  # Try next model
+                    
+        except Exception as e:
+            print(f"[call_gemini_api] Model {model} exception: {e}")
+            continue  # Try next model
+    
+    print(f"[call_gemini_api] All models failed")
+    return None
 
 # =============================================================================
 # REQUEST / RESPONSE SCHEMAS
