@@ -6,6 +6,10 @@ from fastapi import FastAPI, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 import httpx
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 app = FastAPI(
     title="Compawss AI Emergency Dispatch Backend",
@@ -32,16 +36,59 @@ def get_env_var(key: str, default: str = "") -> str:
     return value.strip().replace('"', '').replace("'", "")
 
 GEMINI_API_KEY = get_env_var("GEMINI_API_KEY")
-GEMINI_MODEL = get_env_var("GEMINI_MODEL", "gemini-1.5-flash")
 GOOGLE_MAPS_API_KEY = get_env_var("GOOGLE_MAPS_PLATFORM_KEY")
 GOOGLE_PLACES_API_KEY = get_env_var("GOOGLE_PLACES_API_KEY", GOOGLE_MAPS_API_KEY)
 SUPABASE_URL = get_env_var("SUPABASE_URL")
 SUPABASE_ANON_KEY = get_env_var("SUPABASE_ANON_KEY")
 DEMO_MODE = get_env_var("DEMO_MODE", "false").lower() == "true"
 
-# Log selected Gemini model at startup
-print(f"[STARTUP] Selected Gemini model: {GEMINI_MODEL}")
-print(f"[STARTUP] API version: v1beta")
+# Global variable to store dynamically selected model
+GEMINI_MODEL = None
+GEMINI_MODEL_METHODS = []
+
+def discover_gemini_model():
+    """
+    Dynamically discover available Gemini models and select the first one
+    that supports generateContent method.
+    """
+    global GEMINI_MODEL, GEMINI_MODEL_METHODS
+    
+    if not GEMINI_API_KEY or GEMINI_API_KEY == "MY_GEMINI_API_KEY":
+        print("[STARTUP] Gemini API key not configured - skipping model discovery")
+        return
+    
+    try:
+        import httpx
+        url = f"https://generativelanguage.googleapis.com/v1beta/models?key={GEMINI_API_KEY}"
+        response = httpx.get(url, timeout=10.0)
+        
+        if response.status_code != 200:
+            print(f"[STARTUP] Failed to fetch models: HTTP {response.status_code}")
+            return
+        
+        data = response.json()
+        models = data.get("models", [])
+        
+        # Find first model that supports generateContent
+        for model in models:
+            model_name = model.get("name", "").replace("models/", "")
+            supported_methods = model.get("supportedGenerationMethods", [])
+            
+            if "generateContent" in supported_methods:
+                GEMINI_MODEL = model_name
+                GEMINI_MODEL_METHODS = supported_methods
+                print(f"[STARTUP] Auto-selected Gemini model: {GEMINI_MODEL}")
+                print(f"[STARTUP] Supported methods: {', '.join(GEMINI_MODEL_METHODS)}")
+                print(f"[STARTUP] API version: v1beta")
+                return
+        
+        print(f"[STARTUP] No models found with generateContent support")
+        
+    except Exception as e:
+        print(f"[STARTUP] Model discovery failed: {e}")
+
+# Discover and select model at startup
+discover_gemini_model()
 print(f"[STARTUP] Demo mode: {DEMO_MODE}")
 
 # =============================================================================
@@ -345,6 +392,53 @@ async def health_check():
         "demo_mode": DEMO_MODE
     }
 
+@app.get("/debug/gemini/models")
+async def debug_gemini_models():
+    """
+    List all available Gemini models and their supported methods.
+    """
+    if not GEMINI_API_KEY or GEMINI_API_KEY == "MY_GEMINI_API_KEY":
+        return {
+            "error": "Gemini API key not configured",
+            "models": []
+        }
+    
+    try:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models?key={GEMINI_API_KEY}"
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(url)
+            
+            if response.status_code != 200:
+                return {
+                    "error": f"HTTP {response.status_code}: {response.text}",
+                    "models": []
+                }
+            
+            data = response.json()
+            models = data.get("models", [])
+            
+            # Format model info
+            model_list = []
+            for model in models:
+                model_list.append({
+                    "name": model.get("name", "").replace("models/", ""),
+                    "displayName": model.get("displayName", ""),
+                    "supportedGenerationMethods": model.get("supportedGenerationMethods", []),
+                    "supportsGenerateContent": "generateContent" in model.get("supportedGenerationMethods", [])
+                })
+            
+            return {
+                "total_models": len(model_list),
+                "models": model_list,
+                "selected_model": GEMINI_MODEL,
+                "api_version": "v1beta"
+            }
+    except Exception as e:
+        return {
+            "error": str(e),
+            "models": []
+        }
+
 @app.get("/debug/gemini")
 async def debug_gemini():
     """
@@ -353,6 +447,7 @@ async def debug_gemini():
     """
     debug_info = {
         "model": GEMINI_MODEL,
+        "supported_methods": GEMINI_MODEL_METHODS,
         "api_version": "v1beta",
         "api_key_configured": bool(GEMINI_API_KEY and GEMINI_API_KEY != "MY_GEMINI_API_KEY"),
         "api_key_prefix": GEMINI_API_KEY[:10] + "..." if GEMINI_API_KEY else "NOT_SET",
@@ -361,7 +456,10 @@ async def debug_gemini():
     }
     
     # Attempt a simple test call to Gemini
-    if GEMINI_API_KEY and GEMINI_API_KEY != "MY_GEMINI_API_KEY":
+    if not GEMINI_MODEL:
+        debug_info["test_call_result"] = "SKIPPED"
+        debug_info["test_call_error"] = "No model selected (model discovery failed)"
+    elif GEMINI_API_KEY and GEMINI_API_KEY != "MY_GEMINI_API_KEY":
         try:
             url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
             headers = {"Content-Type": "application/json"}
