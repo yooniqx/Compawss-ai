@@ -1156,17 +1156,44 @@ async def ai_chat(payload: ChatRequest):
             knowledge_context += f"\n### {entry['intent'].upper()} - Emergency Level: {entry['emergency_level']}\n"
             knowledge_context += f"{entry['guidance']}\n"
     
-    # Step 3: Fetch location-based data if needed
+    # Step 3: Fetch location-based data from Google Places API
     location_data = ""
-    if intent in ["nearby_vet", "nearby_ngo"] and payload.context:
-        if intent == "nearby_vet" and payload.context.userLocationName:
-            location_data = f"\n\nLOCATION QUERY: User is looking for veterinary services near {payload.context.userLocationName}"
-            if payload.context.vetsList:
-                location_data += "\nAvailable vets will be shown in context below."
-        elif intent == "nearby_ngo" and payload.context.userLocationName:
-            location_data = f"\n\nLOCATION QUERY: User is looking for NGO/rescue services near {payload.context.userLocationName}"
-            if payload.context.ngosList:
-                location_data += "\nAvailable NGOs will be shown in context below."
+    places_results = []
+    
+    # Check if this is a location-based query
+    if intent in ["nearby_vet", "nearby_ngo", "emergency_rescue"]:
+        # Try to extract location from the query itself
+        location = extract_location_from_query(last_user_msg)
+        
+        if location and PLACES_API_KEY:
+            # Determine search type
+            place_type, search_keywords = classify_place_type(last_user_msg)
+            search_query = search_keywords[0] if search_keywords else "veterinary clinic"
+            
+            # Call Google Places API
+            try:
+                places_data = await search_places_text(search_query, location)
+                
+                if places_data.get("status") == "success" and places_data.get("results"):
+                    places_results = places_data["results"]
+                    location_data = f"\n\nREAL PLACES DATA FOR {location.upper()}:\n"
+                    
+                    for i, place in enumerate(places_results[:5], 1):
+                        location_data += f"\n{i}. **{place.get('name')}**\n"
+                        location_data += f"   Address: {place.get('address', 'N/A')}\n"
+                        if place.get('rating'):
+                            location_data += f"   Rating: {place.get('rating')} ({place.get('user_ratings_total', 0)} reviews)\n"
+                    
+                    location_data += f"\nTotal {len(places_results)} places found via Google Places API.\n"
+                else:
+                    location_data = f"\n\nNo places found in {location} via Google Places API. The area may not have registered veterinary services, or try a nearby major city.\n"
+            except Exception as e:
+                print(f"Places API error in chat: {e}")
+                location_data = f"\n\nUnable to fetch places data for {location}. Error: {str(e)}\n"
+        elif not PLACES_API_KEY:
+            location_data = "\n\nGoogle Places API not configured. Cannot fetch real veterinary/NGO data.\n"
+        elif not location:
+            location_data = "\n\nCould not extract location from query. Please specify a city or area (e.g., 'vets in Mumbai', 'NGO in Delhi').\n"
     
     # Build context from provided data
     loc_str = payload.context.userLocationName if payload.context and payload.context.userLocationName else "Location not provided"
