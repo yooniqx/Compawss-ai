@@ -32,7 +32,7 @@ def get_env_var(key: str, default: str = "") -> str:
     return value.strip().replace('"', '').replace("'", "")
 
 GEMINI_API_KEY = get_env_var("GEMINI_API_KEY")
-GEMINI_MODEL = get_env_var("GEMINI_MODEL", "gemini-2.0-flash-exp")
+GEMINI_MODEL = get_env_var("GEMINI_MODEL", "gemini-1.5-pro")
 GOOGLE_MAPS_API_KEY = get_env_var("GOOGLE_MAPS_PLATFORM_KEY")
 GOOGLE_PLACES_API_KEY = get_env_var("GOOGLE_PLACES_API_KEY", GOOGLE_MAPS_API_KEY)
 SUPABASE_URL = get_env_var("SUPABASE_URL")
