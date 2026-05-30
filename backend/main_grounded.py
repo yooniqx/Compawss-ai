@@ -19,6 +19,15 @@ from knowledge_base import (
     ANIMAL_RESCUE_KNOWLEDGE
 )
 
+# Import Google Places service
+from places_service import (
+    extract_location_from_query,
+    classify_place_type,
+    search_places_text,
+    search_places_nearby,
+    GOOGLE_API_KEY as PLACES_API_KEY
+)
+
 app = FastAPI(
     title="Compawss AI Emergency Dispatch Backend",
     description="Python microservice supplying advanced triage, computer vision, and linguistic services for stray animal rescue operations in India.",
@@ -498,6 +507,85 @@ async def debug_gemini():
     else:
         debug_info["test_call_result"] = "SKIPPED"
         debug_info["test_call_error"] = "API key not configured"
+    
+    return debug_info
+
+@app.get("/debug/places")
+async def debug_places_api(query: str):
+    """
+    Debug endpoint to test Google Places API integration.
+    Tests location extraction, place type classification, and API calls.
+    
+    Example: /debug/places?query=animal hospital Kolkata
+    """
+    debug_info = {
+        "query": query,
+        "places_api_key_configured": PLACES_API_KEY is not None and PLACES_API_KEY != "",
+        "places_api_key_source": None,
+        "location_extracted": None,
+        "place_type": None,
+        "search_keywords": None,
+        "api_request_sent": False,
+        "api_response_status": None,
+        "results_count": 0,
+        "results": []
+    }
+    
+    # Check which API key is being used
+    if PLACES_API_KEY:
+        if os.getenv("GOOGLE_PLACES_API_KEY"):
+            debug_info["places_api_key_source"] = "GOOGLE_PLACES_API_KEY"
+        elif os.getenv("GOOGLE_MAPS_PLATFORM_KEY"):
+            debug_info["places_api_key_source"] = "GOOGLE_MAPS_PLATFORM_KEY"
+        else:
+            debug_info["places_api_key_source"] = "unknown"
+    
+    # Extract location from query
+    location = extract_location_from_query(query)
+    debug_info["location_extracted"] = location
+    
+    # Classify place type
+    place_type, search_keywords = classify_place_type(query)
+    debug_info["place_type"] = place_type
+    debug_info["search_keywords"] = search_keywords
+    
+    # If we have location and API key, try to search
+    if location and PLACES_API_KEY:
+        try:
+            # Use first search keyword
+            search_query = search_keywords[0] if search_keywords else "veterinary clinic"
+            
+            debug_info["api_request_sent"] = True
+            debug_info["search_query_used"] = search_query
+            
+            # Call Google Places API
+            result = await search_places_text(search_query, location)
+            
+            debug_info["api_response_status"] = result.get("status")
+            debug_info["results_count"] = result.get("total_results", 0)
+            
+            # Include first 3 results for debugging
+            if result.get("results"):
+                debug_info["results"] = [
+                    {
+                        "name": r.get("name"),
+                        "address": r.get("address"),
+                        "rating": r.get("rating"),
+                        "place_id": r.get("place_id")
+                    }
+                    for r in result["results"][:3]
+                ]
+            
+            if result.get("status") == "error":
+                debug_info["error"] = result.get("error")
+        
+        except Exception as e:
+            debug_info["error"] = str(e)
+    
+    elif not location:
+        debug_info["error"] = "Could not extract location from query"
+    elif not PLACES_API_KEY:
+        debug_info["error"] = "Google Places API key not configured"
     
     return debug_info
 
