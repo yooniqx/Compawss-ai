@@ -518,10 +518,13 @@ async def debug_places_api(query: str):
     
     Example: /debug/places?query=animal hospital Kolkata
     """
+    print(f"\n[DEBUG/PLACES] Query received: {query}")
+    
     debug_info = {
         "query": query,
         "places_api_key_configured": PLACES_API_KEY is not None and PLACES_API_KEY != "",
         "places_api_key_source": None,
+        "places_api_key_length": len(PLACES_API_KEY) if PLACES_API_KEY else 0,
         "location_extracted": None,
         "place_type": None,
         "search_keywords": None,
@@ -535,19 +538,27 @@ async def debug_places_api(query: str):
     if PLACES_API_KEY:
         if os.getenv("GOOGLE_PLACES_API_KEY"):
             debug_info["places_api_key_source"] = "GOOGLE_PLACES_API_KEY"
+            print(f"[DEBUG/PLACES] Using GOOGLE_PLACES_API_KEY")
         elif os.getenv("GOOGLE_MAPS_PLATFORM_KEY"):
             debug_info["places_api_key_source"] = "GOOGLE_MAPS_PLATFORM_KEY"
+            print(f"[DEBUG/PLACES] Using GOOGLE_MAPS_PLATFORM_KEY")
         else:
             debug_info["places_api_key_source"] = "unknown"
+            print(f"[DEBUG/PLACES] API key source unknown")
+    else:
+        print(f"[DEBUG/PLACES] No API key configured")
     
     # Extract location from query
     location = extract_location_from_query(query)
     debug_info["location_extracted"] = location
+    print(f"[DEBUG/PLACES] Extracted location: {location}")
     
     # Classify place type
     place_type, search_keywords = classify_place_type(query)
     debug_info["place_type"] = place_type
     debug_info["search_keywords"] = search_keywords
+    print(f"[DEBUG/PLACES] Place type: {place_type}")
+    print(f"[DEBUG/PLACES] Search keywords: {search_keywords}")
     
     # If we have location and API key, try to search
     if location and PLACES_API_KEY:
@@ -557,12 +568,15 @@ async def debug_places_api(query: str):
             
             debug_info["api_request_sent"] = True
             debug_info["search_query_used"] = search_query
+            print(f"[DEBUG/PLACES] Calling Places API with query: {search_query}")
             
             # Call Google Places API
             result = await search_places_text(search_query, location)
             
             debug_info["api_response_status"] = result.get("status")
             debug_info["results_count"] = result.get("total_results", 0)
+            print(f"[DEBUG/PLACES] API response status: {result.get('status')}")
+            print(f"[DEBUG/PLACES] Results count: {result.get('total_results', 0)}")
             
             # Include first 3 results for debugging
             if result.get("results"):
@@ -578,16 +592,87 @@ async def debug_places_api(query: str):
             
             if result.get("status") == "error":
                 debug_info["error"] = result.get("error")
+                print(f"[DEBUG/PLACES ERROR] {result.get('error')}")
         
         except Exception as e:
             debug_info["error"] = str(e)
+            print(f"[DEBUG/PLACES ERROR] Exception: {type(e).__name__}: {e}")
+            import traceback
+            traceback.print_exc()
     
     elif not location:
         debug_info["error"] = "Could not extract location from query"
+        print(f"[DEBUG/PLACES ERROR] Could not extract location")
     elif not PLACES_API_KEY:
         debug_info["error"] = "Google Places API key not configured"
+        print(f"[DEBUG/PLACES ERROR] API key not configured")
     
     return debug_info
+
+@app.get("/debug/google-status")
+async def debug_google_status():
+    """
+    Check Google API configuration and connectivity.
+    Returns status of all Google services (Places, Maps, Gemini).
+    """
+    print(f"\n[DEBUG/GOOGLE] Status check requested")
+    
+    status = {
+        "timestamp": "2026-05-30T11:05:00Z",
+        "places_api": {
+            "configured": bool(PLACES_API_KEY),
+            "key_source": None,
+            "key_length": len(PLACES_API_KEY) if PLACES_API_KEY else 0,
+            "reachable": False,
+            "test_result": None
+        },
+        "gemini_api": {
+            "configured": bool(GEMINI_API_KEY),
+            "model_selected": GEMINI_MODEL,
+            "reachable": False
+        },
+        "environment": {
+            "GOOGLE_PLACES_API_KEY": bool(os.getenv("GOOGLE_PLACES_API_KEY")),
+            "GOOGLE_MAPS_PLATFORM_KEY": bool(os.getenv("GOOGLE_MAPS_PLATFORM_KEY")),
+            "GEMINI_API_KEY": bool(os.getenv("GEMINI_API_KEY"))
+        }
+    }
+    
+    # Check Places API key source
+    if PLACES_API_KEY:
+        if os.getenv("GOOGLE_PLACES_API_KEY"):
+            status["places_api"]["key_source"] = "GOOGLE_PLACES_API_KEY"
+        elif os.getenv("GOOGLE_MAPS_PLATFORM_KEY"):
+            status["places_api"]["key_source"] = "GOOGLE_MAPS_PLATFORM_KEY"
+    
+    # Test Places API connectivity
+    if PLACES_API_KEY:
+        try:
+            print(f"[DEBUG/GOOGLE] Testing Places API connectivity...")
+            test_result = await search_places_text("veterinary clinic", "Mumbai")
+            status["places_api"]["reachable"] = test_result.get("status") in ["success", "no_results"]
+            status["places_api"]["test_result"] = test_result.get("status")
+            if test_result.get("error"):
+                status["places_api"]["test_error"] = test_result.get("error")
+            print(f"[DEBUG/GOOGLE] Places API test result: {test_result.get('status')}")
+        except Exception as e:
+            status["places_api"]["test_error"] = str(e)
+            print(f"[DEBUG/GOOGLE] Places API test failed: {e}")
+    
+    # Test Gemini API connectivity
+    if GEMINI_API_KEY and GEMINI_MODEL:
+        try:
+            print(f"[DEBUG/GOOGLE] Testing Gemini API connectivity...")
+            test_prompt = "Say 'OK' if you can read this."
+            result = await call_gemini_api(test_prompt, temperature=0.0)
+            status["gemini_api"]["reachable"] = bool(result)
+            status["gemini_api"]["test_result"] = "success" if result else "failed"
+            print(f"[DEBUG/GOOGLE] Gemini API test result: {'success' if result else 'failed'}")
+        except Exception as e:
+            status["gemini_api"]["test_error"] = str(e)
+            print(f"[DEBUG/GOOGLE] Gemini API test failed: {e}")
+    
+    return status
 
 # ============================================================================
 # KNOWLEDGE BASE ENDPOINTS
@@ -1160,22 +1245,34 @@ async def ai_chat(payload: ChatRequest):
     location_data = ""
     places_results = []
     
+    print(f"[CHAT] User query: {last_user_msg}")
+    print(f"[CHAT] Classified intent: {intent}")
+    
     # Check if this is a location-based query
     if intent in ["nearby_vet", "nearby_ngo", "emergency_rescue"]:
+        print(f"[CHAT] Location-based query detected")
+        
         # Try to extract location from the query itself
         location = extract_location_from_query(last_user_msg)
+        print(f"[CHAT] Extracted location: {location}")
+        print(f"[CHAT] Places API key configured: {bool(PLACES_API_KEY)}")
         
         if location and PLACES_API_KEY:
             # Determine search type
             place_type, search_keywords = classify_place_type(last_user_msg)
             search_query = search_keywords[0] if search_keywords else "veterinary clinic"
+            print(f"[CHAT] Place type: {place_type}")
+            print(f"[CHAT] Search query: {search_query}")
             
             # Call Google Places API
             try:
+                print(f"[CHAT] Calling Google Places API...")
                 places_data = await search_places_text(search_query, location)
+                print(f"[CHAT] Places API response status: {places_data.get('status')}")
                 
                 if places_data.get("status") == "success" and places_data.get("results"):
                     places_results = places_data["results"]
+                    print(f"[CHAT] Successfully retrieved {len(places_results)} places")
                     location_data = f"\n\nREAL PLACES DATA FOR {location.upper()}:\n"
                     
                     for i, place in enumerate(places_results[:5], 1):
@@ -1185,15 +1282,26 @@ async def ai_chat(payload: ChatRequest):
                             location_data += f"   Rating: {place.get('rating')} ({place.get('user_ratings_total', 0)} reviews)\n"
                     
                     location_data += f"\nTotal {len(places_results)} places found via Google Places API.\n"
-                else:
+                elif places_data.get("status") == "no_results":
+                    print(f"[CHAT] No results found for {location}")
                     location_data = f"\n\nNo places found in {location} via Google Places API. The area may not have registered veterinary services, or try a nearby major city.\n"
+                else:
+                    error = places_data.get("error", "Unknown error")
+                    print(f"[CHAT ERROR] Places API error: {error}")
+                    location_data = f"\n\nUnable to fetch places data for {location}. Error: {error}\n"
             except Exception as e:
-                print(f"Places API error in chat: {e}")
+                print(f"[CHAT ERROR] Exception in Places API call: {type(e).__name__}: {e}")
+                import traceback
+                traceback.print_exc()
                 location_data = f"\n\nUnable to fetch places data for {location}. Error: {str(e)}\n"
         elif not PLACES_API_KEY:
+            print(f"[CHAT ERROR] Places API key not configured")
             location_data = "\n\nGoogle Places API not configured. Cannot fetch real veterinary/NGO data.\n"
         elif not location:
+            print(f"[CHAT ERROR] Could not extract location from query")
             location_data = "\n\nCould not extract location from query. Please specify a city or area (e.g., 'vets in Mumbai', 'NGO in Delhi').\n"
+    else:
+        print(f"[CHAT] Not a location-based query (intent: {intent})")
     
     # Build context from provided data
     loc_str = payload.context.userLocationName if payload.context and payload.context.userLocationName else "Location not provided"

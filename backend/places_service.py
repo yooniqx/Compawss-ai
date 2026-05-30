@@ -127,7 +127,13 @@ async def search_places_text(query: str, location: str) -> Dict:
     Returns:
         Dict with status, results, and metadata
     """
+    print(f"[PLACES] search_places_text called")
+    print(f"[PLACES] Query: {query}")
+    print(f"[PLACES] Location: {location}")
+    print(f"[PLACES] API key configured: {bool(GOOGLE_API_KEY)}")
+    
     if not GOOGLE_API_KEY:
+        print("[PLACES ERROR] API key not configured")
         return {
             "status": "error",
             "error": "Google Places API key not configured",
@@ -138,6 +144,7 @@ async def search_places_text(query: str, location: str) -> Dict:
     try:
         # Build search query with location
         search_query = f"{query} in {location}, India"
+        print(f"[PLACES] Full search query: {search_query}")
         
         url = "https://maps.googleapis.com/maps/api/place/textsearch/json"
         params = {
@@ -146,22 +153,37 @@ async def search_places_text(query: str, location: str) -> Dict:
             "region": "in"  # Bias results to India
         }
         
+        # Log request details (without exposing full API key)
+        api_key_preview = f"{GOOGLE_API_KEY[:8]}...{GOOGLE_API_KEY[-4:]}" if len(GOOGLE_API_KEY) > 12 else "***"
+        print(f"[PLACES] Request URL: {url}")
+        print(f"[PLACES] API key preview: {api_key_preview}")
+        print(f"[PLACES] Region: in")
+        
         async with httpx.AsyncClient(timeout=10.0) as client:
+            print(f"[PLACES] Sending request to Google Places API...")
             response = await client.get(url, params=params)
+            print(f"[PLACES] Response status code: {response.status_code}")
             
             if response.status_code != 200:
+                error_msg = f"HTTP {response.status_code}: {response.text[:200]}"
+                print(f"[PLACES ERROR] {error_msg}")
                 return {
                     "status": "error",
-                    "error": f"HTTP {response.status_code}: {response.text}",
+                    "error": error_msg,
                     "results": [],
                     "api_key_configured": True
                 }
             
             data = response.json()
+            google_status = data.get("status")
+            print(f"[PLACES] Google API status: {google_status}")
             
-            if data.get("status") == "OK":
+            if google_status == "OK":
                 results = []
-                for place in data.get("results", [])[:10]:  # Top 10 results
+                raw_results = data.get("results", [])
+                print(f"[PLACES] Raw results count: {len(raw_results)}")
+                
+                for place in raw_results[:10]:  # Top 10 results
                     results.append({
                         "name": place.get("name"),
                         "address": place.get("formatted_address"),
@@ -172,6 +194,7 @@ async def search_places_text(query: str, location: str) -> Dict:
                         "location": place.get("geometry", {}).get("location", {})
                     })
                 
+                print(f"[PLACES] Successfully parsed {len(results)} results")
                 return {
                     "status": "success",
                     "results": results,
@@ -179,19 +202,51 @@ async def search_places_text(query: str, location: str) -> Dict:
                     "search_query": search_query,
                     "api_key_configured": True
                 }
-            else:
+            elif google_status == "ZERO_RESULTS":
+                print(f"[PLACES] No results found for query")
                 return {
                     "status": "no_results",
-                    "error": data.get("status"),
+                    "error": "ZERO_RESULTS",
+                    "results": [],
+                    "search_query": search_query,
+                    "api_key_configured": True
+                }
+            elif google_status == "REQUEST_DENIED":
+                error_message = data.get("error_message", "Request denied")
+                print(f"[PLACES ERROR] REQUEST_DENIED: {error_message}")
+                return {
+                    "status": "error",
+                    "error": f"REQUEST_DENIED: {error_message}",
+                    "results": [],
+                    "search_query": search_query,
+                    "api_key_configured": True
+                }
+            else:
+                error_message = data.get("error_message", google_status)
+                print(f"[PLACES ERROR] Google API error: {google_status} - {error_message}")
+                return {
+                    "status": "error",
+                    "error": f"{google_status}: {error_message}",
                     "results": [],
                     "search_query": search_query,
                     "api_key_configured": True
                 }
     
-    except Exception as e:
+    except httpx.TimeoutException as e:
+        print(f"[PLACES ERROR] Request timeout: {e}")
         return {
             "status": "error",
-            "error": str(e),
+            "error": f"Request timeout: {str(e)}",
+            "results": [],
+            "api_key_configured": True
+        }
+    except Exception as e:
+        print(f"[PLACES ERROR] Unexpected error: {type(e).__name__}: {e}")
+        import traceback
+        traceback.print_exc()
+        return {
+            "status": "error",
+            "error": f"{type(e).__name__}: {str(e)}",
             "results": [],
             "api_key_configured": True
         }
