@@ -6,9 +6,24 @@ import httpx
 import os
 import re
 from typing import Optional, List, Dict, Tuple
+from dotenv import load_dotenv
+from pathlib import Path
+
+# Load environment variables from .env file in backend directory
+backend_dir = Path(__file__).parent
+env_path = backend_dir / '.env'
+load_dotenv(dotenv_path=env_path)
 
 # Support both environment variable names
 GOOGLE_API_KEY = os.getenv("GOOGLE_PLACES_API_KEY") or os.getenv("GOOGLE_MAPS_PLATFORM_KEY")
+
+# Debug: Print API key status at module load
+if GOOGLE_API_KEY:
+    print(f"[PLACES_SERVICE] Google API key loaded successfully (length: {len(GOOGLE_API_KEY)})")
+else:
+    print(f"[PLACES_SERVICE] WARNING: Google API key not found in environment")
+    print(f"[PLACES_SERVICE] Checked: GOOGLE_PLACES_API_KEY, GOOGLE_MAPS_PLATFORM_KEY")
+    print(f"[PLACES_SERVICE] .env path: {env_path}")
 
 # Indian cities and common localities for location extraction
 INDIAN_CITIES = [

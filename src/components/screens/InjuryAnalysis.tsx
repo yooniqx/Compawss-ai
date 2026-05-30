@@ -368,7 +368,7 @@ export const VoiceReportingView: React.FC<VoiceReportingProps> = ({ onNavigate }
       // Request microphone permission
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       
-      // Initialize MediaRecorder
+      // Initialize MediaRecorder for audio playback
       const mediaRecorder = new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
@@ -383,41 +383,84 @@ export const VoiceReportingView: React.FC<VoiceReportingProps> = ({ onNavigate }
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
         setRecordedAudioBlob(audioBlob);
         
-        // Try speech recognition if available
-        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-          const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
-          const recognition = new SpeechRecognition();
-          recognition.lang = lang === 'hi' ? 'hi-IN' : lang === 'bn' ? 'bn-IN' : 'en-IN';
-          recognition.continuous = false;
-          recognition.interimResults = false;
-          
-          recognition.onresult = (event: any) => {
-            const transcript = event.results[0][0].transcript;
-            setTranscription(transcript);
-            console.log('[REAL_MICROPHONE] Speech-to-text result:', transcript);
-          };
-          
-          recognition.onerror = (event: any) => {
-            console.warn('[REAL_MICROPHONE] Speech recognition error:', event.error);
-            setTranscription('[Audio recorded, transcription unavailable. Please type your report.]');
-          };
-          
-          recognition.start();
-        } else {
-          console.warn('[REAL_MICROPHONE] Speech recognition not available in this browser');
-          setTranscription('[Audio recorded, transcription unavailable. Please type your report.]');
-        }
-        
         // Stop all tracks
         stream.getTracks().forEach(track => track.stop());
         setVoiceState('playback');
+        
+        console.log('[REAL_MICROPHONE] Recording stopped, audio blob created');
       };
+      
+      // Initialize Speech Recognition BEFORE starting recording
+      if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+        const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
+        const recognition = new SpeechRecognition();
+        recognition.lang = lang === 'hi' ? 'hi-IN' : lang === 'bn' ? 'bn-IN' : 'en-IN';
+        recognition.continuous = true; // Keep listening during entire recording
+        recognition.interimResults = true; // Show interim results as user speaks
+        
+        recognition.onstart = () => {
+          console.log('[SPEECH_RECOGNITION] Started listening');
+        };
+        
+        recognition.onresult = (event: any) => {
+          let finalTranscript = '';
+          let interimTranscript = '';
+          
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            const transcript = event.results[i][0].transcript;
+            if (event.results[i].isFinal) {
+              finalTranscript += transcript + ' ';
+            } else {
+              interimTranscript += transcript;
+            }
+          }
+          
+          // Update transcription with final + interim results
+          if (finalTranscript) {
+            setTranscription(prev => (prev + ' ' + finalTranscript).trim());
+            console.log('[SPEECH_RECOGNITION] Final transcript:', finalTranscript);
+          } else if (interimTranscript) {
+            // Show interim results in real-time
+            setTranscription(prev => {
+              const parts = prev.split('[interim]');
+              return parts[0].trim() + (parts[0] ? ' ' : '') + '[interim] ' + interimTranscript;
+            });
+          }
+        };
+        
+        recognition.onerror = (event: any) => {
+          console.warn('[SPEECH_RECOGNITION] Error:', event.error);
+          if (event.error === 'no-speech') {
+            console.log('[SPEECH_RECOGNITION] No speech detected, continuing...');
+          } else if (event.error === 'aborted') {
+            console.log('[SPEECH_RECOGNITION] Recognition aborted');
+          } else {
+            setTranscription(prev => prev || '[Audio recorded, transcription unavailable. Please type your report.]');
+          }
+        };
+        
+        recognition.onend = () => {
+          console.log('[SPEECH_RECOGNITION] Ended');
+          // Clean up interim markers
+          setTranscription(prev => prev.replace(/\[interim\].*$/, '').trim());
+        };
+        
+        // Store recognition instance to stop it later
+        (window as any).__speechRecognition = recognition;
+        
+        // Start speech recognition
+        recognition.start();
+        console.log('[SPEECH_RECOGNITION] Starting...');
+      } else {
+        console.warn('[SPEECH_RECOGNITION] Not available in this browser');
+        setTranscription('[Speech recognition not available. Please type your report.]');
+      }
       
       // Start recording
       mediaRecorder.start();
       setVoiceSeconds(0);
       setVoiceState('recording');
-      setTranscription('');
+      setTranscription(''); // Clear previous transcription
       console.log('[REAL_MICROPHONE] Recording started');
       
     } catch (error) {
@@ -428,9 +471,20 @@ export const VoiceReportingView: React.FC<VoiceReportingProps> = ({ onNavigate }
   };
   
   const handleStopVoiceRecord = () => {
+    // Stop media recorder
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
       mediaRecorderRef.current.stop();
       console.log('[REAL_MICROPHONE] Recording stopped');
+    }
+    
+    // Stop speech recognition
+    if ((window as any).__speechRecognition) {
+      try {
+        (window as any).__speechRecognition.stop();
+        console.log('[SPEECH_RECOGNITION] Stopped');
+      } catch (e) {
+        console.warn('[SPEECH_RECOGNITION] Error stopping:', e);
+      }
     }
   };
 
