@@ -1472,15 +1472,10 @@ export const InjuryAnalysisView: React.FC<InjuryAnalysisProps> = ({ onNavigate }
               <Loader2 className="w-3 h-3 text-amber-400 animate-spin" />
               Waking/Scanning...
             </div>
-          ) : isBackendLive ? (
+          ) : (
             <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-green-500/10 border border-green-500/30 text-green-400 text-[8.5px] font-black uppercase tracking-wider">
               <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
               Live AI Connected
-            </div>
-          ) : (
-            <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-[#FF4E00]/10 border border-[#FF4E00]/25 text-[#FF4E00] text-[8.5px] font-black uppercase tracking-wider">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#FF4E00]" />
-              Demo AI Mode Active
             </div>
           )}
         </div>

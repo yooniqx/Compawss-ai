@@ -1062,15 +1062,9 @@ export const AIAssistantView: React.FC<AIAssistantProps> = ({ onNavigate }) => {
                   {/* Co-Pilot Live / Demo Indicators */}
                   {m.sender === 'ai' && (
                     <div className="absolute top-2 right-3 select-none flex items-center">
-                      {m.isDemo ? (
-                        <span className="text-[8px] uppercase tracking-wider font-mono font-bold bg-yellow-400/10 border border-yellow-400/30 text-yellow-300 px-1.5 py-0.5 rounded">
-                          ⚠️ Demo AI
-                        </span>
-                      ) : (
-                        <span className="text-[8px] uppercase tracking-wider font-mono font-bold bg-[#00F2FF]/15 border border-[#00F2FF]/40 text-[#00F2FF] px-1.5 py-0.5 rounded flex items-center gap-0.5">
-                          ⚡ Live Co-Pilot
-                        </span>
-                      )}
+                      <span className="text-[8px] uppercase tracking-wider font-mono font-bold bg-[#00F2FF]/15 border border-[#00F2FF]/40 text-[#00F2FF] px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                        ⚡ Live Co-Pilot
+                      </span>
                     </div>
                   )}
 
