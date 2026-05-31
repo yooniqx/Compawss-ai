@@ -10,6 +10,9 @@
 [![React](https://img.shields.io/badge/React-18-blue.svg)](https://reactjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue.svg)](https://www.typescriptlang.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-Python-green.svg)](https://fastapi.tiangolo.com/)
+[![GitHub](https://img.shields.io/badge/GitHub-yooniqx-181717?logo=github)](https://github.com/yooniqx/Compawss-ai)
+
+**Created by [Debopriya Bose](https://github.com/yooniqx)**
 
 [Features](#-features) • [Screenshots](#-screenshots) • [Tech Stack](#-tech-stack) • [Setup](#-quick-start) • [Architecture](#-architecture)
 
@@ -437,9 +440,10 @@ compawss-ai/
 
 ### Getting Help
 - 📖 **Documentation:** Check this README and inline code comments
-- 🐛 **Bug Reports:** Open an issue on GitHub
-- 💡 **Feature Requests:** Open an issue with the `enhancement` label
-- 📧 **Email:** [your-email@example.com]
+- 🐛 **Bug Reports:** [Open an issue on GitHub](https://github.com/yooniqx/Compawss-ai/issues)
+- 💡 **Feature Requests:** [Open an issue](https://github.com/yooniqx/Compawss-ai/issues) with the `enhancement` label
+- 📧 **Email:** [dbose0906@gmail.com](mailto:dbose0906@gmail.com)
+- 👤 **Developer:** [Debopriya Bose (@yooniqx)](https://github.com/yooniqx)
 
 ### Known Issues
 - Voice recording requires HTTPS in production
@@ -451,7 +455,7 @@ compawss-ai/
 
 ## 📄 License
 
-**Copyright © 2024 [Your Name]. All Rights Reserved.**
+**Copyright © 2024 Debopriya Bose. All Rights Reserved.**
 
 This project is **proprietary and confidential**. Unauthorized copying, distribution, modification, or use of this software, via any medium, is strictly prohibited without explicit written permission from the copyright holder.
 
@@ -462,7 +466,7 @@ This project is **proprietary and confidential**. Unauthorized copying, distribu
 - ❌ **No Commercial Use** - Software may not be used commercially
 - ✅ **Viewing Only** - Code may be viewed for reference purposes only
 
-For licensing inquiries, please contact: [your-email@example.com]
+For licensing inquiries, please contact: [dbose0906@gmail.com](mailto:dbose0906@gmail.com)
 
 ---
 
