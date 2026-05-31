@@ -41,7 +41,13 @@ export const DEMO_VETS: Vet[] = [
     distance: '1.2 km away',
     available24x7: true,
     emergencyVitalsMonitorCapable: true,
-    image: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&q=80&w=300'
+    image: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&q=80&w=300',
+    source: 'Demo Data',
+    openingStatus: 'Open 24/7',
+    type: 'Emergency Veterinary Hospital',
+    latitude: 19.0544,
+    longitude: 72.8402,
+    googleMapsUrl: 'https://www.google.com/maps/search/?api=1&query=19.0544,72.8402'
   },
   {
     id: 'vet-2',
@@ -53,7 +59,49 @@ export const DEMO_VETS: Vet[] = [
     distance: '3.4 km away',
     available24x7: false,
     emergencyVitalsMonitorCapable: true,
-    image: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&q=80&w=300'
+    image: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&q=80&w=300',
+    source: 'Demo Data',
+    openingStatus: 'Open 9 AM - 9 PM',
+    type: 'Pet Care Clinic',
+    latitude: 12.9352,
+    longitude: 77.6245,
+    googleMapsUrl: 'https://www.google.com/maps/search/?api=1&query=12.9352,77.6245'
+  },
+  {
+    id: 'vet-3',
+    name: 'Dr. Ananya Chatterjee',
+    clinicName: 'Park Street Animal Hospital',
+    address: 'Park Street, Near Mullick Bazar, Kolkata, West Bengal 700016',
+    contact: '+91 98300 67890',
+    specialties: ['Emergency Care', 'Surgery', 'Vaccination'],
+    distance: '2.1 km away',
+    available24x7: true,
+    emergencyVitalsMonitorCapable: true,
+    image: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&q=80&w=300',
+    source: 'Demo Data',
+    openingStatus: 'Open 24/7',
+    type: 'Animal Hospital',
+    latitude: 22.5487,
+    longitude: 88.3516,
+    googleMapsUrl: 'https://www.google.com/maps/search/?api=1&query=22.5487,88.3516'
+  },
+  {
+    id: 'vet-4',
+    name: 'Dr. Rajesh Kumar',
+    clinicName: 'Salt Lake Veterinary Clinic',
+    address: 'Sector V, Salt Lake, Kolkata, West Bengal 700091',
+    contact: '+91 98310 12345',
+    specialties: ['Pet Wellness', 'Dental Care', 'Diagnostics'],
+    distance: '5.8 km away',
+    available24x7: false,
+    emergencyVitalsMonitorCapable: true,
+    image: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&q=80&w=300',
+    source: 'Demo Data',
+    openingStatus: 'Open 10 AM - 8 PM',
+    type: 'Veterinary Clinic',
+    latitude: 22.5692,
+    longitude: 88.4306,
+    googleMapsUrl: 'https://www.google.com/maps/search/?api=1&query=22.5692,88.4306'
   }
 ];
 
@@ -73,7 +121,13 @@ export const DEMO_NGOS: NGO[] = [
       cats: { current: 18, max: 25 },
       cattle: { current: 4, max: 10 }
     },
-    rating: 4.8
+    rating: 4.8,
+    source: 'Demo Data',
+    openingStatus: 'Rescue Dispatch Active',
+    type: 'Animal Rescue NGO',
+    latitude: 19.1200,
+    longitude: 72.8284,
+    googleMapsUrl: 'https://www.google.com/maps/search/?api=1&query=19.1200,72.8284'
   },
   {
     id: 'ngo-2',
@@ -86,7 +140,51 @@ export const DEMO_NGOS: NGO[] = [
       dogs: { current: 72, max: 80 },
       cats: { current: 30, max: 30 }
     },
-    rating: 4.9
+    rating: 4.9,
+    source: 'Demo Data',
+    openingStatus: 'Active 24/7',
+    type: 'Rehabilitation Center',
+    latitude: 13.0358,
+    longitude: 77.5970,
+    googleMapsUrl: 'https://www.google.com/maps/search/?api=1&query=13.0358,77.5970'
+  },
+  {
+    id: 'ngo-3',
+    name: 'Kolkata Animal Rescue',
+    city: 'Kolkata',
+    address: 'Ballygunge, Near Gariahat Market, Kolkata, West Bengal 700019',
+    contact: '+91 33 2440 5678',
+    coverageAreas: ['Ballygunge', 'Park Street', 'Salt Lake', 'New Town', 'Howrah'],
+    capacity: {
+      dogs: { current: 35, max: 50 },
+      cats: { current: 12, max: 20 }
+    },
+    rating: 4.7,
+    source: 'Demo Data',
+    openingStatus: 'Emergency Response Active',
+    type: 'Animal Rescue NGO',
+    latitude: 22.5204,
+    longitude: 88.3640,
+    googleMapsUrl: 'https://www.google.com/maps/search/?api=1&query=22.5204,88.3640'
+  },
+  {
+    id: 'ngo-4',
+    name: 'Friendicoes SECA Kolkata',
+    city: 'Kolkata',
+    address: 'New Town, Action Area II, Kolkata, West Bengal 700156',
+    contact: '+91 33 2357 9012',
+    coverageAreas: ['New Town', 'Rajarhat', 'Salt Lake', 'Bidhannagar'],
+    capacity: {
+      dogs: { current: 28, max: 40 },
+      cats: { current: 8, max: 15 }
+    },
+    rating: 4.6,
+    source: 'Demo Data',
+    openingStatus: 'Standby Mode',
+    type: 'Shelter & Rescue',
+    latitude: 22.5958,
+    longitude: 88.4719,
+    googleMapsUrl: 'https://www.google.com/maps/search/?api=1&query=22.5958,88.4719'
   }
 ];
 
@@ -129,6 +227,36 @@ export const DEMO_FOSTER_HOMES: FosterHome[] = [
     capacity: 2,
     currentFosters: 1,
     availabilityStatus: 'Available'
+  },
+  {
+    id: 'foster-2',
+    hostName: 'Arjun Banerjee',
+    location: 'Ballygunge Place, Kolkata',
+    contact: '+91 98320 78901',
+    preferences: ['Adult dogs', 'Post-surgery recovery', 'Indie strays'],
+    capacity: 3,
+    currentFosters: 1,
+    availabilityStatus: 'Available'
+  },
+  {
+    id: 'foster-3',
+    hostName: 'Priya Ghosh',
+    location: 'Salt Lake Sector V, Kolkata',
+    contact: '+91 98310 45678',
+    preferences: ['Cats', 'Kittens', 'Small animals'],
+    capacity: 4,
+    currentFosters: 3,
+    availabilityStatus: 'Available'
+  },
+  {
+    id: 'foster-4',
+    hostName: 'Rahul Sharma',
+    location: 'New Town Action Area I, Kolkata',
+    contact: '+91 98300 23456',
+    preferences: ['Large dogs', 'Injured strays', 'Long-term care'],
+    capacity: 2,
+    currentFosters: 2,
+    availabilityStatus: 'Full'
   }
 ];
 
