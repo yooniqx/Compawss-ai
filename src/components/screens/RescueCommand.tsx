@@ -1,21 +1,23 @@
 import React, { useState } from 'react';
-import { 
-  ShieldAlert, 
-  Map, 
-  WifiOff, 
-  Download, 
-  Plus, 
-  ChevronRight, 
-  Compass, 
-  Activity, 
-  Check, 
-  MapPin, 
-  Cpu, 
-  PieChart, 
-  Users, 
-  DollarSign, 
-  Layers, 
-  AlertTriangle 
+import {
+  ShieldAlert,
+  Map,
+  WifiOff,
+  Download,
+  Plus,
+  ChevronRight,
+  Compass,
+  Activity,
+  Check,
+  MapPin,
+  Cpu,
+  PieChart,
+  Users,
+  DollarSign,
+  Layers,
+  AlertTriangle,
+  Navigation,
+  ExternalLink
 } from 'lucide-react';
 import { Screen } from '../../types';
 import { NGO_COORD_RESCUERS, DASHBOARD_STATS, RESCUE_CASES, getDemoMode } from '../../data';
@@ -33,7 +35,7 @@ interface RescueCommandProps {
 
 export const RescueCommandView: React.FC<RescueCommandProps> = ({ onNavigate }) => {
   const [showDroneScan, setShowDroneScan] = useState(true);
-  const { cases, stats, userLocation, vets, ngos } = useRescue();
+  const { cases, stats, userLocation, vets, ngos, fosters } = useRescue();
 
   const activeCasesCount = cases.filter(c => c.status !== 'Resolved' && c.status !== 'Closed').length;
   const inProgressCount = cases.filter(c => c.status === 'Rescue in Progress' || c.status === 'Veterinary Care').length;
@@ -218,6 +220,31 @@ export const RescueCommandView: React.FC<RescueCommandProps> = ({ onNavigate }) 
                     <span className="text-green-400">{vet.openingStatus || 'Available'}</span>
                   </div>
                 </div>
+
+                {/* Google Maps Navigation Buttons */}
+                {vet.googleMapsUrl && (
+                  <div className="flex gap-2 pt-2 border-t border-white/5 mt-2">
+                    <a
+                      href={vet.googleMapsUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg bg-[#4cd7f6]/10 border border-[#4cd7f6]/25 text-[#4cd7f6] hover:bg-[#4cd7f6]/20 transition-all text-[10px] font-mono font-bold uppercase tracking-wider"
+                    >
+                      <MapPin className="w-3.5 h-3.5" />
+                      <span>View on Map</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                    <a
+                      href={`https://www.google.com/maps/dir/?api=1&destination=${vet.latitude || ''},${vet.longitude || ''}&travelmode=driving`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 hover:bg-emerald-500/20 transition-all text-[10px] font-mono font-bold uppercase tracking-wider"
+                    >
+                      <Navigation className="w-3.5 h-3.5" />
+                      <span>Get Directions</span>
+                    </a>
+                  </div>
+                )}
               </div>
             ))
           )}
@@ -287,10 +314,123 @@ export const RescueCommandView: React.FC<RescueCommandProps> = ({ onNavigate }) 
                     <span className="text-[#d0bcff]">{ngo.openingStatus || 'Active Standby'}</span>
                   </div>
                 </div>
+
+                {/* Google Maps Navigation Buttons */}
+                {ngo.googleMapsUrl && (
+                  <div className="flex gap-2 pt-2 border-t border-white/5 mt-2">
+                    <a
+                      href={ngo.googleMapsUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg bg-purple-500/10 border border-purple-500/25 text-purple-400 hover:bg-purple-500/20 transition-all text-[10px] font-mono font-bold uppercase tracking-wider"
+                    >
+                      <MapPin className="w-3.5 h-3.5" />
+                      <span>View on Map</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                    <a
+                      href={`https://www.google.com/maps/dir/?api=1&destination=${ngo.latitude || ''},${ngo.longitude || ''}&travelmode=driving`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 hover:bg-emerald-500/20 transition-all text-[10px] font-mono font-bold uppercase tracking-wider"
+                    >
+                      <Navigation className="w-3.5 h-3.5" />
+                      <span>Get Directions</span>
+                    </a>
+                  </div>
+                )}
               </div>
             ))
           )}
         </div>
+      {/* Dynamic Foster Homes Section */}
+      <div className="space-y-3.5">
+        <div className="flex items-center justify-between pl-1">
+          <span className="text-[11px] font-mono uppercase tracking-wider text-amber-400 font-black">
+            Foster Care Homes (Available)
+          </span>
+          <span className="text-[9px] font-mono text-[#cbc3d7]/40 uppercase font-bold">{userLocation.city}</span>
+        </div>
+
+        <div className="space-y-3">
+          {fosters.length === 0 ? (
+            <div className="p-4 rounded-xl border border-white/5 bg-[#17171c] text-center text-xs text-[#cbc3d7]/50 font-mono">
+              No foster homes registered in this area.
+            </div>
+          ) : (
+            fosters.map((foster) => (
+              <div 
+                key={foster.id}
+                className="p-4 bg-[#1f1f25]/75 border border-white/5 rounded-2xl space-y-2.5 group hover:border-amber-400/20 transition-all shadow-md text-left"
+              >
+                <div className="flex justify-between items-start gap-2">
+                  <h4 className="text-xs font-bold text-white group-hover:text-amber-400 transition-colors leading-tight">
+                    {foster.hostName}
+                  </h4>
+
+                  {/* Foster Status Badge */}
+                  <span className={`text-[8px] font-mono px-2 py-0.5 rounded-full border shrink-0 font-extrabold uppercase tracking-wider ${
+                    foster.availabilityStatus === 'Available'
+                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25'
+                      : foster.availabilityStatus === 'Full'
+                      ? 'bg-red-500/10 text-red-400 border-red-500/25'
+                      : 'bg-gray-500/10 text-gray-400 border-gray-500/25'
+                  }`}>
+                    {foster.availabilityStatus}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-[9.5px] font-mono text-[#cbc3d7]/65 pt-1.5 border-t border-white/5">
+                  <div className="space-y-0.5">
+                    <span className="text-[8px] text-[#cbc3d7]/30 uppercase font-black block">Capacity</span>
+                    <span className="text-gray-200">{foster.currentFosters}/{foster.capacity} Animals</span>
+                  </div>
+                  <div className="space-y-0.5">
+                    <span className="text-[8px] text-[#cbc3d7]/30 uppercase font-black block">Preferences</span>
+                    <span className="text-gray-200">{foster.preferences.join(', ')}</span>
+                  </div>
+                  <div className="space-y-0.5 col-span-2">
+                    <span className="text-[8px] text-[#cbc3d7]/30 uppercase font-black block">Location</span>
+                    <span className="text-gray-200 truncate block text-[9.2px]">{foster.location}</span>
+                  </div>
+                  <div className="space-y-0.5 col-span-2">
+                    <span className="text-[8px] text-[#cbc3d7]/30 uppercase font-black block">Contact</span>
+                    <a href={`tel:${foster.contact}`} className="text-teal-400 font-extrabold hover:underline">
+                      {foster.contact || 'Unavailable'}
+                    </a>
+                  </div>
+                </div>
+
+                {/* Google Maps Navigation for Foster Homes */}
+                {foster.location && (
+                  <div className="flex gap-2 pt-2 border-t border-white/5 mt-2">
+                    <a
+                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(foster.location)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg bg-amber-500/10 border border-amber-500/25 text-amber-400 hover:bg-amber-500/20 transition-all text-[10px] font-mono font-bold uppercase tracking-wider"
+                    >
+                      <MapPin className="w-3.5 h-3.5" />
+                      <span>View on Map</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                    <a
+                      href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(foster.location)}&travelmode=driving`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 hover:bg-emerald-500/20 transition-all text-[10px] font-mono font-bold uppercase tracking-wider"
+                    >
+                      <Navigation className="w-3.5 h-3.5" />
+                      <span>Get Directions</span>
+                    </a>
+                  </div>
+                )}
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
       </div>
 
     </div>

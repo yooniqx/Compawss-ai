@@ -123,6 +123,13 @@ export async function findNearbyVets(
           const openNow = place.regularOpeningHours?.openNow;
           const statusText = openNow !== undefined ? (openNow ? 'Open Now' : 'Closed') : 'Hours info unavailable';
 
+          // Generate Google Maps URL
+          const googleMapsUrl = lat2 !== undefined && lon2 !== undefined
+            ? `https://www.google.com/maps/search/?api=1&query=${lat2},${lon2}`
+            : place.formattedAddress
+            ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.formattedAddress)}`
+            : undefined;
+
           return {
             id: place.id || `google-vet-${index}`,
             name: 'Veterinary Duty Surgeon',
@@ -136,7 +143,10 @@ export async function findNearbyVets(
             image: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&q=80&w=300',
             source: 'Google Places',
             openingStatus: statusText,
-            type: 'Animal Hospital & Vet Clinic'
+            type: 'Animal Hospital & Vet Clinic',
+            latitude: lat2,
+            longitude: lon2,
+            googleMapsUrl
           };
         });
       }
@@ -154,6 +164,14 @@ export async function findNearbyVets(
       return dbVets.map(row => {
         const dKm = calculateHaversineDistance(latitude, longitude, row.latitude, row.longitude);
         const isVerified = row.verified_status?.toLowerCase() === 'verified' || row.verified_status?.toLowerCase() === 'approved';
+        
+        // Generate Google Maps URL
+        const googleMapsUrl = row.latitude && row.longitude
+          ? `https://www.google.com/maps/search/?api=1&query=${row.latitude},${row.longitude}`
+          : row.address
+          ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(row.address)}`
+          : undefined;
+
         return {
           id: row.id,
           name: row.name || 'Specialist Surgeon',
@@ -167,7 +185,10 @@ export async function findNearbyVets(
           image: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&q=80&w=300',
           source: isVerified ? 'Verified' : 'Supabase Directory',
           openingStatus: row.opening_hours || 'Ambulance dispatch active',
-          type: row.type || 'Veterinary Care Facility'
+          type: row.type || 'Veterinary Care Facility',
+          latitude: row.latitude,
+          longitude: row.longitude,
+          googleMapsUrl
         };
       }).sort((a, b) => parseFloat(a.distance) - parseFloat(b.distance));
     }
@@ -202,6 +223,14 @@ export async function fetchNearbyNGOs(
       return dbNgos.map(row => {
         const dKm = calculateHaversineDistance(latitude, longitude, row.latitude, row.longitude);
         const isVerified = row.verified_status?.toLowerCase() === 'verified' || row.verified_status?.toLowerCase() === 'approved';
+        
+        // Generate Google Maps URL
+        const googleMapsUrl = row.latitude && row.longitude
+          ? `https://www.google.com/maps/search/?api=1&query=${row.latitude},${row.longitude}`
+          : row.address
+          ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(row.address)}`
+          : undefined;
+
         return {
           id: row.id,
           name: row.name,
@@ -213,7 +242,10 @@ export async function fetchNearbyNGOs(
           rating: 4.8,
           source: isVerified ? 'Verified' : 'Supabase Directory',
           openingStatus: row.opening_hours || (row.emergency_available ? 'Ambulance Dispatch Active' : 'Standby'),
-          type: row.type || 'NGO Rescue Center'
+          type: row.type || 'NGO Rescue Center',
+          latitude: row.latitude,
+          longitude: row.longitude,
+          googleMapsUrl
         };
       }).sort((a, b) => {
         // Safe check for numeric sort using a simple parser or keeping in city filter array

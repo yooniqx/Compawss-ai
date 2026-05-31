@@ -105,6 +105,9 @@ export interface NGO {
   source?: 'Google' | 'Verified Database' | 'Demo' | 'Google Places' | 'Supabase Directory' | 'Verified' | 'Demo Data' | string;
   openingStatus?: string;
   type?: string;
+  latitude?: number;
+  longitude?: number;
+  googleMapsUrl?: string;
 }
 
 export interface Vet {
@@ -121,6 +124,9 @@ export interface Vet {
   source?: 'Google' | 'Verified Database' | 'Demo' | 'Google Places' | 'Supabase Directory' | 'Verified' | 'Demo Data' | string;
   openingStatus?: string;
   type?: string;
+  latitude?: number;
+  longitude?: number;
+  googleMapsUrl?: string;
 }
 
 export interface Volunteer {
