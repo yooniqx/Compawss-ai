@@ -1,118 +1,194 @@
+<div align="center">
+
 # 🐾 Compawss AI
 
-**AI-Powered Humanitarian Animal Rescue Platform**
+### AI-Powered Humanitarian Animal Rescue Platform
 
-Compawss AI combines cutting-edge artificial intelligence with real-time rescue coordination to save animal lives. Built with a futuristic tactical rescue-system UI aesthetic, it provides emergency responders, NGOs, and veterinarians with powerful tools for animal welfare operations.
+*A futuristic tactical rescue system combining cutting-edge AI with real-time coordination to save animal lives*
+
+[![License](https://img.shields.io/badge/License-Proprietary-red.svg)](LICENSE)
+[![React](https://img.shields.io/badge/React-18-blue.svg)](https://reactjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue.svg)](https://www.typescriptlang.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-Python-green.svg)](https://fastapi.tiangolo.com/)
+
+[Features](#-features) • [Screenshots](#-screenshots) • [Tech Stack](#-tech-stack) • [Setup](#-quick-start) • [Architecture](#-architecture)
+
+</div>
+
+---
+
+## 📸 Screenshots
+
+### Landing Page - Tactical Rescue Terminal
+<div align="center">
+<img src="https://github.com/user-attachments/assets/landing-page-screenshot.png" alt="Compawss AI Landing Page" width="800"/>
+
+*Cyberpunk-inspired landing interface with animated orbital navigation system*
+</div>
+
+### Home Dashboard - Emergency Dispatch Center
+<div align="center">
+<img src="https://github.com/user-attachments/assets/home-dashboard-screenshot.png" alt="Compawss AI Home Dashboard" width="800"/>
+
+*Real-time rescue command center with GPS tracking, multilingual support, and tactical map overlay*
+</div>
 
 ---
 
 ## 🌟 Features
 
-### Core Capabilities
-- **🤖 AI-Powered Injury Analysis** - Real-time image analysis using Google Gemini AI to assess animal injuries and provide immediate guidance
-- **🚨 Emergency Rescue Reporting** - Quick incident reporting with GPS location tracking and voice recording
-- **🏥 NGO & Veterinary Discovery** - Intelligent search and mapping of nearby animal welfare organizations and veterinary clinics
-- **💬 Conversational AI Assistant** - Context-aware AI guidance for rescue operations and animal care
-- **📍 Live Geolocation Context** - Real-time location services for accurate rescue coordination
-- **📊 Rescue Dispatch Dashboard** - Tactical command center for managing active rescue operations
+### 🚨 Emergency Response System
+- **AI-Powered Injury Analysis** - Real-time image analysis using Google Gemini AI to assess animal injuries and provide immediate medical guidance
+- **Voice-Activated SOS** - Hands-free emergency reporting with voice recording and transcription
+- **Camera Quick Scan** - Instant injury detection through image capture and AI analysis
+- **GPS Location Tracking** - Automatic geolocation for accurate rescue coordination
+- **Multilingual Support** - Interface available in English, Hindi, and Bengali for wider accessibility
 
-### Technical Highlights
-- Cyberpunk/tactical rescue terminal styling with animated overlays
-- Real-time AI integration (no mock data or fake responses)
-- Microphone recording for voice reports
-- GPS permission handling and location services
-- Responsive design optimized for mobile rescue operations
+### 🏥 Rescue Coordination
+- **Tactical Overwatch Map** - Real-time Google Maps integration showing nearby veterinary clinics, NGOs, and foster homes
+- **Smart Resource Discovery** - Intelligent search using Google Places API to find animal welfare organizations within 15km radius
+- **One-Click Navigation** - Direct Google Maps integration for "View on Map" and "Get Directions" functionality
+- **Live Dispatch Status** - Track active rescue operations and responder availability
+- **Incident History** - Complete rescue operation logs with timestamps and outcomes
+
+### 💬 AI Assistant
+- **Conversational AI Guidance** - Context-aware assistance powered by Google Gemini for rescue operations and animal care
+- **Grounded Knowledge Base** - Specialized veterinary and rescue protocol information
+- **Multi-turn Conversations** - Maintains context across chat sessions for complex queries
+- **Emergency Protocol Advisor** - Step-by-step guidance for critical situations
+
+### 🎨 User Experience
+- **Cyberpunk Tactical UI** - Futuristic rescue terminal aesthetic with animated overlays and scanner-like diagnostics
+- **Dark/Light Mode** - Fully functional theme switching with proper contrast optimization
+- **High Contrast Mode** - Enhanced readability for accessibility
+- **Dynamic Text Scaling** - Adjustable text size (1-5 scale) for better visibility
+- **Color Deficit Filters** - Support for Protanopia, Deuteranopia, and Tritanopia
+- **Audio Haptics** - Tactile feedback for button presses and alerts
+- **Voice Commands** - Hands-free navigation capability
+- **Responsive Design** - Optimized for mobile rescue operations
+
+---
+
+## 🏗️ Tech Stack
+
+### Frontend Architecture
+```
+React 18 + TypeScript + Vite
+├── UI Framework: Tailwind CSS
+├── Animations: Framer Motion
+├── State Management: React Context API
+├── Routing: React Router (screen-based navigation)
+└── Icons: Lucide React
+```
+
+**Key Libraries:**
+- **React 18** - Modern UI with concurrent features
+- **TypeScript** - Type-safe development
+- **Vite** - Lightning-fast build tool and dev server
+- **Tailwind CSS** - Utility-first styling with custom design system
+- **Framer Motion** - Smooth animations and transitions
+- **Google Maps JavaScript API** - Real-time geolocation and mapping
+- **Supabase Client** - Real-time database and authentication
+
+### Backend Architecture
+```
+FastAPI (Python 3.8+)
+├── AI Engine: Google Gemini 1.5 Flash
+├── Knowledge Base: Grounded AI with custom protocols
+├── Location Services: Google Places API
+├── Database: Supabase (PostgreSQL)
+└── API Documentation: OpenAPI/Swagger
+```
+
+**Key Technologies:**
+- **FastAPI** - High-performance async Python framework
+- **Google Gemini AI** - Advanced multimodal AI for image analysis and chat
+- **Supabase** - PostgreSQL database with real-time subscriptions
+- **Google Places API** - Location-based services for resource discovery
+- **Pydantic** - Data validation and settings management
+
+### Infrastructure
+- **Frontend Hosting:** Vercel/Netlify (recommended)
+- **Backend Hosting:** Render
+- **Database:** Supabase Cloud (PostgreSQL)
+- **CDN:** Cloudflare (optional)
+- **Monitoring:** Sentry (optional)
 
 ---
 
 ## 🚀 Quick Start
 
 ### Prerequisites
-- **Node.js** (v16 or higher)
-- **Python 3.8+** (for backend)
-- **Gemini API Key** ([Get one here](https://aistudio.google.com/app/apikey))
-- **Supabase Account** (for database)
-- **Google Maps API Key** (for location services)
 
-### Frontend Setup
+Ensure you have the following installed:
+- **Node.js** v16+ ([Download](https://nodejs.org/))
+- **Python** 3.8+ ([Download](https://www.python.org/))
+- **Git** ([Download](https://git-scm.com/))
 
-1. **Install dependencies:**
-   ```bash
-   npm install
-   ```
+You'll also need API keys from:
+- [Google AI Studio](https://aistudio.google.com/app/apikey) - For Gemini AI
+- [Google Cloud Console](https://console.cloud.google.com/) - For Maps & Places APIs
+- [Supabase](https://supabase.com/) - For database
 
-2. **Configure environment variables:**
-   
-   Create `.env.local` in the root directory:
-   ```env
-   VITE_BACKEND_URL=http://localhost:8000
-   VITE_SUPABASE_URL=your_supabase_url
-   VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-   VITE_GOOGLE_MAPS_API_KEY=your_google_maps_key
-   ```
+### 1️⃣ Clone the Repository
 
-3. **Run the development server:**
-   ```bash
-   npm run dev
-   ```
+```bash
+git clone https://github.com/yourusername/compawss-ai.git
+cd compawss-ai
+```
 
-4. **Open your browser:**
-   ```
-   http://localhost:5173
-   ```
+### 2️⃣ Frontend Setup
 
-### Backend Setup
+```bash
+# Install dependencies
+npm install
 
-1. **Navigate to backend directory:**
-   ```bash
-   cd backend
-   ```
+# Create environment file
+cp .env.example .env.local
 
-2. **Install Python dependencies:**
-   ```bash
-   pip install -r requirements.txt
-   ```
+# Edit .env.local with your credentials
+# VITE_BACKEND_URL=http://localhost:8000
+# VITE_SUPABASE_URL=your_supabase_url
+# VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+# VITE_GOOGLE_MAPS_API_KEY=your_google_maps_api_key
 
-3. **Configure environment variables:**
-   
-   Create `backend/.env`:
-   ```env
-   GEMINI_API_KEY=your_gemini_api_key
-   SUPABASE_URL=your_supabase_url
-   SUPABASE_ANON_KEY=your_supabase_anon_key
-   SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
-   GOOGLE_PLACES_API_KEY=your_google_places_key
-   GOOGLE_MAPS_PLATFORM_KEY=your_google_maps_key
-   ```
+# Start development server
+npm run dev
+```
 
-4. **Run the backend server:**
-   ```bash
-   python main_grounded.py
-   ```
+Frontend will be available at `http://localhost:5173`
 
-   Backend will be available at `http://localhost:8000`
+### 3️⃣ Backend Setup
 
----
+```bash
+# Navigate to backend directory
+cd backend
 
-## 🏗️ Tech Stack
+# Install Python dependencies
+pip install -r requirements.txt
 
-### Frontend
-- **React 18** with TypeScript
-- **Vite** for blazing-fast development
-- **Tailwind CSS** for styling
-- **Google Maps API** for geolocation
-- **Supabase Client** for real-time data
+# Create environment file
+cp .env.example .env
 
-### Backend
-- **FastAPI** (Python) for high-performance API
-- **Google Gemini AI** for intelligent analysis
-- **Supabase** for database and authentication
-- **Google Places API** for location services
+# Edit backend/.env with your credentials
+# GEMINI_API_KEY=your_gemini_api_key
+# SUPABASE_URL=your_supabase_url
+# SUPABASE_ANON_KEY=your_supabase_anon_key
+# SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+# GOOGLE_PLACES_API_KEY=your_places_api_key
+# GOOGLE_MAPS_PLATFORM_KEY=your_maps_api_key
 
-### Deployment
-- **Frontend:** Vercel/Netlify
-- **Backend:** Render
-- **Database:** Supabase (PostgreSQL)
+# Run the backend server
+python main_grounded.py
+```
+
+Backend will be available at `http://localhost:8000`
+
+### 4️⃣ Database Setup
+
+1. Create a Supabase project at [supabase.com](https://supabase.com)
+2. Run the SQL schema from `supabase-schema.sql` in the Supabase SQL editor
+3. Copy your project URL and keys to the environment files
 
 ---
 
@@ -121,24 +197,46 @@ Compawss AI combines cutting-edge artificial intelligence with real-time rescue 
 ```
 compawss-ai/
 ├── src/
-│   ├── components/        # React components
-│   │   ├── screens/       # Main application screens
-│   │   ├── Header.tsx     # Navigation header
-│   │   └── Navbar.tsx     # Bottom navigation
-│   ├── context/           # React context providers
-│   │   ├── ChatContext.tsx      # AI chat state
-│   │   └── RescueContext.tsx    # Rescue operations state
-│   ├── services/          # API and service integrations
-│   │   ├── aiService.ts         # AI/backend communication
-│   │   ├── apiService.ts        # API utilities
-│   │   └── supabaseClient.ts    # Database client
-│   └── types.ts           # TypeScript type definitions
+│   ├── components/
+│   │   ├── screens/              # Main application screens
+│   │   │   ├── Splash.tsx        # Landing page with orbital animation
+│   │   │   ├── Home.tsx          # Dashboard, SOS, Notifications, AI Chat
+│   │   │   ├── RescueCommand.tsx # Map, NGO Dashboard, Offline Mode
+│   │   │   ├── InjuryAnalysis.tsx # Voice Report, Injury Scan, Vet Dashboard
+│   │   │   ├── Dashboards.tsx    # Foster, Volunteer, Owner Dashboards
+│   │   │   └── AccessibilitySettings.tsx # User preferences
+│   │   ├── CompawssLogo.tsx      # Animated orbital logo component
+│   │   ├── Header.tsx            # Top navigation bar
+│   │   ├── Navbar.tsx            # Bottom navigation menu
+│   │   └── ProtoConsole.tsx      # Prototype navigation overlay
+│   ├── context/
+│   │   ├── ChatContext.tsx       # AI chat state management
+│   │   └── RescueContext.tsx     # Rescue operations state
+│   ├── services/
+│   │   ├── aiService.ts          # Backend API communication
+│   │   ├── apiService.ts         # Google Maps & Places integration
+│   │   ├── googleMapsLoader.ts   # Dynamic Maps API loader
+│   │   └── supabaseClient.ts     # Database client
+│   ├── types.ts                  # TypeScript type definitions
+│   ├── data.ts                   # Static data and constants
+│   ├── demoData.ts               # Demo data for testing
+│   ├── App.tsx                   # Main application component
+│   ├── main.tsx                  # Application entry point
+│   └── index.css                 # Global styles and themes
 ├── backend/
-│   ├── main_grounded.py   # Production backend (real AI)
-│   ├── main.py            # Legacy backend
-│   └── requirements.txt   # Python dependencies
-├── .env.example           # Environment variable template
-└── README.md              # This file
+│   ├── main_grounded.py          # Production backend with real AI
+│   ├── main.py                   # Legacy backend (deprecated)
+│   ├── knowledge_base.py         # Grounded AI knowledge system
+│   ├── requirements.txt          # Python dependencies
+│   └── README.md                 # Backend documentation
+├── public/                       # Static assets
+├── .env.example                  # Environment variable template
+├── supabase-schema.sql           # Database schema
+├── package.json                  # Node.js dependencies
+├── tsconfig.json                 # TypeScript configuration
+├── vite.config.ts                # Vite build configuration
+├── tailwind.config.js            # Tailwind CSS configuration
+└── README.md                     # This file
 ```
 
 ---
@@ -148,22 +246,40 @@ compawss-ai/
 ### Environment Variables
 
 #### Frontend (`.env.local`)
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `VITE_BACKEND_URL` | Backend API URL | ✅ |
-| `VITE_SUPABASE_URL` | Supabase project URL | ✅ |
-| `VITE_SUPABASE_ANON_KEY` | Supabase anonymous key | ✅ |
-| `VITE_GOOGLE_MAPS_API_KEY` | Google Maps API key | ✅ |
+
+| Variable | Description | Required | Example |
+|----------|-------------|----------|---------|
+| `VITE_BACKEND_URL` | Backend API endpoint | ✅ | `http://localhost:8000` |
+| `VITE_SUPABASE_URL` | Supabase project URL | ✅ | `https://xxx.supabase.co` |
+| `VITE_SUPABASE_ANON_KEY` | Supabase anonymous key | ✅ | `eyJhbGc...` |
+| `VITE_GOOGLE_MAPS_API_KEY` | Google Maps JavaScript API key | ✅ | `AIzaSy...` |
 
 #### Backend (`backend/.env`)
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `GEMINI_API_KEY` | Google Gemini AI API key | ✅ |
-| `SUPABASE_URL` | Supabase project URL | ✅ |
-| `SUPABASE_ANON_KEY` | Supabase anonymous key | ✅ |
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key | ✅ |
-| `GOOGLE_PLACES_API_KEY` | Google Places API key | ✅ |
-| `GOOGLE_MAPS_PLATFORM_KEY` | Google Maps Platform key | ✅ |
+
+| Variable | Description | Required | Example |
+|----------|-------------|----------|---------|
+| `GEMINI_API_KEY` | Google Gemini AI API key | ✅ | `AIzaSy...` |
+| `SUPABASE_URL` | Supabase project URL | ✅ | `https://xxx.supabase.co` |
+| `SUPABASE_ANON_KEY` | Supabase anonymous key | ✅ | `eyJhbGc...` |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key | ✅ | `eyJhbGc...` |
+| `GOOGLE_PLACES_API_KEY` | Google Places API key | ✅ | `AIzaSy...` |
+| `GOOGLE_MAPS_PLATFORM_KEY` | Google Maps Platform key | ✅ | `AIzaSy...` |
+
+### API Key Setup
+
+#### Google Cloud Console
+1. Enable **Maps JavaScript API**
+2. Enable **Places API (New)**
+3. Enable **Gemini API** (via AI Studio)
+4. Create API keys with appropriate restrictions
+5. Add HTTP referrer restrictions for frontend keys
+6. Add IP restrictions for backend keys
+
+#### Supabase
+1. Create a new project
+2. Copy the project URL and anon key
+3. Generate a service role key from Settings > API
+4. Run the database schema from `supabase-schema.sql`
 
 ---
 
@@ -171,56 +287,201 @@ compawss-ai/
 
 ### Deploy Backend to Render
 
-1. Push your code to GitHub
-2. Connect your repository to Render
-3. Set environment variables in Render dashboard
-4. Deploy from `backend/main_grounded.py`
+1. **Push code to GitHub**
+   ```bash
+   git add .
+   git commit -m "Prepare for deployment"
+   git push origin main
+   ```
 
-### Deploy Frontend
+2. **Create new Web Service on Render**
+   - Connect your GitHub repository
+   - Set build command: `pip install -r requirements.txt`
+   - Set start command: `python main_grounded.py`
+   - Add environment variables from `backend/.env`
 
-1. Build the production bundle:
+3. **Configure environment**
+   - Add all required environment variables
+   - Set Python version to 3.8+
+   - Enable auto-deploy from main branch
+
+### Deploy Frontend to Vercel
+
+1. **Build production bundle**
    ```bash
    npm run build
    ```
 
-2. Deploy the `dist/` folder to your hosting provider
+2. **Deploy to Vercel**
+   ```bash
+   npm install -g vercel
+   vercel --prod
+   ```
 
-3. Update `VITE_BACKEND_URL` to your production backend URL
+3. **Configure environment**
+   - Add all `VITE_*` environment variables
+   - Update `VITE_BACKEND_URL` to your Render backend URL
+   - Enable automatic deployments from GitHub
+
+### Post-Deployment Checklist
+- ✅ Test all API endpoints
+- ✅ Verify Google Maps integration
+- ✅ Check AI chat functionality
+- ✅ Test image upload and analysis
+- ✅ Verify database connections
+- ✅ Test geolocation services
+- ✅ Check mobile responsiveness
 
 ---
 
-## 🔐 Security Notes
+## 🏛️ Architecture
 
-- **Never commit `.env` or `.env.local` files** - they contain sensitive API keys
-- **Use `.env.example`** as a template with placeholder values only
+### System Overview
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     Compawss AI Platform                     │
+├─────────────────────────────────────────────────────────────┤
+│                                                               │
+│  ┌──────────────┐         ┌──────────────┐                  │
+│  │   Frontend   │◄───────►│   Backend    │                  │
+│  │  React + TS  │  REST   │   FastAPI    │                  │
+│  └──────┬───────┘         └──────┬───────┘                  │
+│         │                        │                           │
+│         │                        │                           │
+│    ┌────▼────┐            ┌─────▼──────┐                   │
+│    │ Google  │            │   Gemini   │                    │
+│    │  Maps   │            │     AI     │                    │
+│    └─────────┘            └────────────┘                    │
+│         │                        │                           │
+│         │                  ┌─────▼──────┐                   │
+│         └─────────────────►│  Supabase  │                   │
+│                            │ PostgreSQL │                    │
+│                            └────────────┘                    │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Data Flow
+
+1. **User Interaction** → Frontend captures user input (voice, image, text)
+2. **API Request** → Frontend sends request to FastAPI backend
+3. **AI Processing** → Backend processes with Gemini AI
+4. **Knowledge Grounding** → AI responses enhanced with veterinary protocols
+5. **Database Storage** → Results stored in Supabase
+6. **Real-time Updates** → Frontend receives updates via Supabase subscriptions
+7. **Map Integration** → Google Maps displays rescue resources
+
+---
+
+## 🔐 Security & Privacy
+
+### Security Measures
+- ✅ Environment variables for all sensitive data
+- ✅ API key restrictions (HTTP referrers, IP addresses)
+- ✅ HTTPS-only communication in production
+- ✅ Supabase Row Level Security (RLS) policies
+- ✅ Input validation and sanitization
+- ✅ Rate limiting on API endpoints
+
+### Privacy Considerations
+- 🔒 No personal data stored without consent
+- 🔒 Image data processed securely via Gemini AI
+- 🔒 Location data used only for rescue coordination
+- 🔒 Chat history stored locally in browser
+- 🔒 Optional anonymous usage mode
+
+### Best Practices
+- **Never commit** `.env` or `.env.local` files
 - **Rotate API keys** if accidentally exposed
-- **Enable API key restrictions** in Google Cloud Console
-- **Use environment variables** in production deployments
+- **Use `.env.example`** as template only
+- **Enable API restrictions** in Google Cloud Console
+- **Monitor usage** via API dashboards
+- **Regular security audits** of dependencies
 
 ---
 
-## 🤝 Contributing
+## 🎯 Roadmap
 
-This is a humanitarian project focused on animal welfare. Contributions are welcome!
+### Phase 1: Core Features ✅
+- [x] AI-powered injury analysis
+- [x] Emergency SOS system
+- [x] Real-time map integration
+- [x] Conversational AI assistant
+- [x] Multilingual support
+- [x] Accessibility features
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+### Phase 2: Enhanced Coordination 🚧
+- [ ] Real-time rescue team dispatch
+- [ ] Live video streaming for remote assessment
+- [ ] Multi-user collaboration tools
+- [ ] Advanced analytics dashboard
+- [ ] Mobile app (React Native)
+
+### Phase 3: Community Features 📋
+- [ ] Public rescue incident feed
+- [ ] Volunteer coordination system
+- [ ] Foster home matching algorithm
+- [ ] Donation and fundraising integration
+- [ ] Success story sharing platform
+
+### Phase 4: AI Enhancements 🔮
+- [ ] Predictive rescue analytics
+- [ ] Automated incident categorization
+- [ ] Multi-species injury recognition
+- [ ] Treatment outcome prediction
+- [ ] Resource optimization AI
+
+---
+
+## 🆘 Support & Contact
+
+### Getting Help
+- 📖 **Documentation:** Check this README and inline code comments
+- 🐛 **Bug Reports:** Open an issue on GitHub
+- 💡 **Feature Requests:** Open an issue with the `enhancement` label
+- 📧 **Email:** [your-email@example.com]
+
+### Known Issues
+- Voice recording requires HTTPS in production
+- GPS permissions must be granted for location features
+- Image upload limited to 10MB per file
+- Real-time updates require stable internet connection
 
 ---
 
 ## 📄 License
 
-This project is built for humanitarian purposes to aid in animal rescue operations.
+**Copyright © 2024 [Your Name]. All Rights Reserved.**
+
+This project is **proprietary and confidential**. Unauthorized copying, distribution, modification, or use of this software, via any medium, is strictly prohibited without explicit written permission from the copyright holder.
+
+### Terms
+- ❌ **No Copying** - Source code may not be copied or reproduced
+- ❌ **No Distribution** - Software may not be distributed or shared
+- ❌ **No Modification** - Code may not be modified or adapted
+- ❌ **No Commercial Use** - Software may not be used commercially
+- ✅ **Viewing Only** - Code may be viewed for reference purposes only
+
+For licensing inquiries, please contact: [your-email@example.com]
 
 ---
 
-## 🆘 Support
+## 🙏 Acknowledgments
 
-For issues, questions, or feature requests, please open an issue on GitHub.
+- **Google Gemini AI** - For advanced multimodal AI capabilities
+- **Supabase** - For real-time database infrastructure
+- **Google Maps Platform** - For geolocation services
+- **React Community** - For excellent documentation and tools
+- **Animal Welfare Organizations** - For inspiration and guidance
 
 ---
+
+<div align="center">
 
 **Built with ❤️ for animal welfare**
+
+*Saving lives, one rescue at a time*
+
+[⬆ Back to Top](#-compawss-ai)
+
+</div>
