@@ -1,5 +1,6 @@
 import { Vet, NGO, Volunteer, FosterHome } from '../types';
 import { safeFetchSupabaseTable, isSupabaseConfigured, SupabaseRecord } from './supabaseClient';
+import { loadGoogleMapsAPI, isGoogleMapsLoaded } from './googleMapsLoader';
 
 /**
  * Compawss real-data-ready service layer.
@@ -26,8 +27,8 @@ const sanitizeSupabaseUrl = (url: string): string => {
 const RAW_SUPABASE_URL = sanitizeSupabaseUrl((import.meta as any).env?.VITE_SUPABASE_URL || process.env.VITE_SUPABASE_URL || '');
 
 export const API_KEYS = {
-  // Google Maps Platform API Key (Exposed to Vite bundle)
-  GOOGLE_MAPS: process.env.GOOGLE_MAPS_PLATFORM_KEY || '',
+  // Google Maps Platform API Key (from Vite environment)
+  GOOGLE_MAPS: (import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY || '',
 
   // Database credentials endpoints (Supabase)
   SUPABASE_URL: RAW_SUPABASE_URL,
@@ -40,7 +41,7 @@ export const API_KEYS = {
 // Check if live API engines are configured
 export const isGoogleMapsConfigured = (): boolean => {
   const key = API_KEYS.GOOGLE_MAPS;
-  return Boolean(key) && key !== 'YOUR_API_KEY' && key.trim().length > 10;
+  return Boolean(key) && key !== 'YOUR_API_KEY' && key !== 'your_google_maps_api_key_here' && key.trim().length > 10;
 };
 
 /* ==========================================================================
@@ -93,6 +94,15 @@ export async function findNearbyVets(
   radiusMeters = 15000
 ): Promise<Vet[]> {
   const isKeyPresent = isGoogleMapsConfigured();
+
+  // Try to load Google Maps API if not already loaded
+  if (isKeyPresent && !isGoogleMapsLoaded()) {
+    try {
+      await loadGoogleMapsAPI();
+    } catch (error) {
+      console.warn('[findNearbyVets] Failed to load Google Maps API:', error);
+    }
+  }
 
   // If Google Maps is loaded and client has valid key, use live Place search
   if (isKeyPresent && typeof window !== 'undefined' && (window as any).google?.maps?.places) {
