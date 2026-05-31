@@ -20,6 +20,24 @@
 
 ---
 
+## 🌐 Live Deployment
+
+<div align="center">
+
+### 🚀 Production URLs
+
+**Frontend (Cloudflare Pages):**
+🔗 [https://compawss-ai.pages.dev](https://compawss-ai.pages.dev)
+
+**Backend API (Render):**
+🔗 [https://compawss-ai.onrender.com](https://compawss-ai.onrender.com)
+
+*Deployed and live for humanitarian animal rescue operations*
+
+</div>
+
+---
+
 ## 📸 Screenshots
 
 ### Landing Page - Tactical Rescue Terminal
