@@ -18,7 +18,7 @@ export const Header: React.FC<HeaderProps> = ({
     <header className="sticky top-0 z-40 w-full bg-[#08080C]/85 backdrop-blur-md border-b border-white/10 py-3.5 px-5">
       <div className="max-w-md md:max-w-xl mx-auto flex items-center justify-between">
         {/* Brand logo & title */}
-        <div 
+        <div
           onClick={() => setScreen(Screen.Home)}
           className="flex items-center gap-2.5 cursor-pointer group select-none"
         >
@@ -28,7 +28,7 @@ export const Header: React.FC<HeaderProps> = ({
             <CompawssLogo size={42} animate={true} className="relative z-10 filter drop-shadow-[0_0_8px_rgba(255,184,0,0.25)]" />
           </div>
           <div className="flex flex-col">
-            <span className="font-display font-black text-[15px] leading-tight tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-white over:from-amber-100 to-[#cbc3d7] group-hover:from-[#FFE5A3] group-hover:to-[#00F2FF] transition-all">
+            <span className="font-display font-black text-[15px] leading-tight tracking-tight text-white group-hover:text-[#FFE5A3] transition-all">
               Compawss AI
             </span>
             <span className="text-[8.5px] font-mono tracking-widest text-[#FF4E00] font-black uppercase">

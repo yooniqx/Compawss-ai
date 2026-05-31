@@ -46,9 +46,22 @@ html.light-mode #root > div {
   color: #1A1A24 !important;
 }
 
+/* Header background in light mode */
+html.light-mode header {
+  background-color: rgba(255, 255, 255, 0.95) !important;
+  border-bottom-color: rgba(0, 0, 0, 0.1) !important;
+}
+
 /* Ensure no element uses low-contrast default white/slate texts on light mode background */
 html.light-mode .text-white {
   color: #1A1A24 !important;
+}
+
+/* Fix gradient text in light mode - make it visible */
+html.light-mode .bg-clip-text {
+  -webkit-text-fill-color: #1A1A24 !important;
+  background-clip: text !important;
+  -webkit-background-clip: text !important;
 }
 
 /* Map all hardcoded dark backgrounds to beautiful slate and warm white surfaces */
@@ -59,6 +72,7 @@ html.light-mode [class*="bg-[#131318]"],
 html.light-mode [class*="bg-[#050508]"],
 html.light-mode [class*="bg-[#0a0b10]"],
 html.light-mode [class*="bg-[#0c0d14]"],
+html.light-mode [class*="bg-[#17171c]"],
 html.light-mode [class*="bg-black"] {
   background-color: #FAF9F6 !important;
   border-color: rgba(0, 0, 0, 0.1) !important;
@@ -376,6 +390,39 @@ html.light-mode [class*="bg-[#0a0b10]/80"],
 html.light-mode [class*="bg-black/70"] {
   background-color: rgba(250, 249, 246, 0.85) !important;
   backdrop-filter: blur(16px) !important;
+/* Accessibility Settings specific light mode fixes */
+html.light-mode .glass-panel[class*="bg-[#FF4E00]/5"] {
+  background-color: rgba(198, 40, 40, 0.06) !important;
+}
+
+html.light-mode .glass-panel[class*="bg-[#00F2FF]/10"] {
+  background-color: rgba(0, 96, 100, 0.06) !important;
+}
+
+/* Range slider in light mode */
+html.light-mode input[type="range"] {
+  background-color: rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Checkbox accent in light mode */
+html.light-mode input[type="checkbox"] {
+  background-color: rgba(0, 0, 0, 0.05) !important;
+  border-color: rgba(0, 0, 0, 0.2) !important;
+}
+
+/* Scrollbar in light mode */
+html.light-mode ::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+html.light-mode ::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+html.light-mode ::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+
 }
 
 /* High Contrast Mode general styling adjustments */
