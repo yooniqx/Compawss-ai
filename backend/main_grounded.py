@@ -34,10 +34,18 @@ app = FastAPI(
     version="2.0.0"
 )
 
-# Enable CORS for direct front-end calls from the Vite dev server
+# Enable CORS for direct front-end calls
+# Allowed origins: local development and production deployment
+allowed_origins = [
+    "http://localhost:3000",
+    "http://localhost:5173",
+    "https://compawss-ai.pages.dev",
+    "https://*.compawss-ai.pages.dev",  # Preview deployments
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

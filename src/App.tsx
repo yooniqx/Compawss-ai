@@ -3,7 +3,6 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Screen } from './types';
 import { Header } from './components/Header';
 import { Navbar } from './components/Navbar';
-import { ProtoConsole } from './components/ProtoConsole';
 
 // Imports of screen components
 import { Splash } from './components/screens/Splash';
@@ -315,11 +314,6 @@ export default function App() {
         />
       )}
 
-      {/* Magnificent System Sandbox switcher panel */}
-      <ProtoConsole 
-        currentScreen={screen} 
-        onNavigate={(s) => navigateTo(s, 'none')} 
-      />
 
       {/* SVG Color Blindness filters */}
       <svg style={{ position: 'absolute', width: 0, height: 0 }} aria-hidden="true">
