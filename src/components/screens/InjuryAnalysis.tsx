@@ -365,6 +365,9 @@ export const VoiceReportingView: React.FC<VoiceReportingProps> = ({ onNavigate }
 
   const handleStartVoiceRecord = async () => {
     try {
+      // Clear previous transcription FIRST
+      setTranscription('');
+      
       // Request microphone permission
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       
@@ -383,11 +386,16 @@ export const VoiceReportingView: React.FC<VoiceReportingProps> = ({ onNavigate }
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
         setRecordedAudioBlob(audioBlob);
         
+        // Create audio URL for playback
+        const audioUrl = URL.createObjectURL(audioBlob);
+        const audio = new Audio(audioUrl);
+        (window as any).__recordedAudio = audio;
+        
         // Stop all tracks
         stream.getTracks().forEach(track => track.stop());
         setVoiceState('playback');
         
-        console.log('[REAL_MICROPHONE] Recording stopped, audio blob created');
+        console.log('[REAL_MICROPHONE] Recording stopped, audio blob created, playback ready');
       };
       
       // Initialize Speech Recognition BEFORE starting recording
@@ -434,15 +442,20 @@ export const VoiceReportingView: React.FC<VoiceReportingProps> = ({ onNavigate }
             console.log('[SPEECH_RECOGNITION] No speech detected, continuing...');
           } else if (event.error === 'aborted') {
             console.log('[SPEECH_RECOGNITION] Recognition aborted');
-          } else {
+          } else if (event.error !== 'no-speech') {
+            // Only show error message if transcription is still empty
             setTranscription(prev => prev || '[Audio recorded, transcription unavailable. Please type your report.]');
           }
         };
         
         recognition.onend = () => {
           console.log('[SPEECH_RECOGNITION] Ended');
-          // Clean up interim markers
-          setTranscription(prev => prev.replace(/\[interim\].*$/, '').trim());
+          // Clean up interim markers and check if we got any transcription
+          setTranscription(prev => {
+            const cleaned = prev.replace(/\[interim\].*$/, '').trim();
+            // If no transcription after recording, show fallback message
+            return cleaned || '[Audio recorded, transcription unavailable. Please type your report.]';
+          });
         };
         
         // Store recognition instance to stop it later
@@ -460,7 +473,6 @@ export const VoiceReportingView: React.FC<VoiceReportingProps> = ({ onNavigate }
       mediaRecorder.start();
       setVoiceSeconds(0);
       setVoiceState('recording');
-      setTranscription(''); // Clear previous transcription
       console.log('[REAL_MICROPHONE] Recording started');
       
     } catch (error) {
@@ -828,9 +840,35 @@ export const VoiceReportingView: React.FC<VoiceReportingProps> = ({ onNavigate }
         {voiceState === 'playback' && (
           <div className="p-2 bg-cyan-500/5 border border-cyan-400/20 rounded-xl flex items-center justify-between text-left animate-in fade-in duration-200">
             <div className="flex items-center gap-2">
-              <button 
+              <button
                 onClick={() => {
-                  setIsPlaybackPlaying(!isPlaybackPlaying);
+                  const audio = (window as any).__recordedAudio;
+                  if (audio) {
+                    if (isPlaybackPlaying) {
+                      // Stop playback
+                      audio.pause();
+                      audio.currentTime = 0;
+                      setIsPlaybackPlaying(false);
+                      setAudioPlaybackProgress(0);
+                    } else {
+                      // Start playback
+                      audio.currentTime = 0;
+                      audio.play();
+                      setIsPlaybackPlaying(true);
+                      
+                      // Update progress bar as audio plays
+                      audio.ontimeupdate = () => {
+                        const progress = (audio.currentTime / audio.duration) * 100;
+                        setAudioPlaybackProgress(progress);
+                      };
+                      
+                      // Reset when audio ends
+                      audio.onended = () => {
+                        setIsPlaybackPlaying(false);
+                        setAudioPlaybackProgress(0);
+                      };
+                    }
+                  }
                 }}
                 className="h-8 w-8 bg-cyan-400 hover:bg-cyan-300 text-black rounded-lg flex items-center justify-center cursor-pointer transition"
               >
@@ -849,6 +887,14 @@ export const VoiceReportingView: React.FC<VoiceReportingProps> = ({ onNavigate }
 
             <button
               onClick={() => {
+                // Stop and cleanup audio
+                const audio = (window as any).__recordedAudio;
+                if (audio) {
+                  audio.pause();
+                  audio.currentTime = 0;
+                }
+                setIsPlaybackPlaying(false);
+                setAudioPlaybackProgress(0);
                 setVoiceSeconds(0);
                 setVoiceState('idle');
                 setTranscription(''); // Clear transcription for re-recording
