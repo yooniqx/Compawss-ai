@@ -21,14 +21,14 @@
 
 ### Landing Page - Tactical Rescue Terminal
 <div align="center">
-<img src="https://github.com/user-attachments/assets/landing-page-screenshot.png" alt="Compawss AI Landing Page" width="800"/>
+<img src=".github/assets/landing-page.png" alt="Compawss AI Landing Page" width="800"/>
 
 *Cyberpunk-inspired landing interface with animated orbital navigation system*
 </div>
 
 ### Home Dashboard - Emergency Dispatch Center
 <div align="center">
-<img src="https://github.com/user-attachments/assets/home-dashboard-screenshot.png" alt="Compawss AI Home Dashboard" width="800"/>
+<img src=".github/assets/home-dashboard.png" alt="Compawss AI Home Dashboard" width="800"/>
 
 *Real-time rescue command center with GPS tracking, multilingual support, and tactical map overlay*
 </div>
