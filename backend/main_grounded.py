@@ -1293,7 +1293,7 @@ async def ai_chat(payload: ChatRequest):
                     print(f"[CHAT] Successfully retrieved {len(places_results)} places")
                     location_data = f"\n\nREAL PLACES DATA FOR {location.upper()}:\n"
                     
-                    for i, place in enumerate(places_results[:5], 1):
+                    for i, place in enumerate(places_results[:10], 1):  # Show all 10 results
                         location_data += f"\n{i}. **{place.get('name')}**\n"
                         location_data += f"   Address: {place.get('address', 'N/A')}\n"
                         if place.get('rating'):
@@ -1396,7 +1396,7 @@ async def ai_chat(payload: ChatRequest):
             "contents": conversation,
             "generationConfig": {
                 "temperature": 0.3,
-                "maxOutputTokens": 500  # Limit response length
+                "maxOutputTokens": 2048  # Increased to allow full place listings
             }
         }
         
