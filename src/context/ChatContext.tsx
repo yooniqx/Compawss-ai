@@ -189,7 +189,8 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setLoading(true);
 
     // 2. Compile dynamic context metadata
-    let userLocationName = userLocation.name || 'Bandra, Mumbai';
+    // Only send userLocation if it's actually set by GPS, otherwise let backend extract from query
+    let userLocationName = userLocation.name && userLocation.name !== 'Bandra, Mumbai' ? userLocation.name : undefined;
     let vetsList = vets || [];
     let ngosList = ngos || [];
     
@@ -209,7 +210,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     const compiledContext = attachContext ? {
-      userLocationName,
+      userLocationName, // Will be undefined if not set, allowing backend to extract from query
       vetsList,
       ngosList,
       activeCase,
