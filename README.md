@@ -36,6 +36,13 @@
 *Real-time rescue command center with GPS tracking, multilingual support, and tactical map overlay*
 </div>
 
+### AI Copilot - Conversational Rescue Assistant
+<div align="center">
+<img src=".github/assets/compawss-ai-copilot.png" alt="Compawss AI Copilot" width="800"/>
+
+*Context-aware AI assistant powered by Google Gemini for rescue guidance and animal care support*
+</div>
+
 ---
 
 ## 🌟 Features
