@@ -458,12 +458,23 @@ export const VoiceReportingView: React.FC<VoiceReportingProps> = ({ onNavigate }
           } else if (event.error === 'not-allowed') {
             console.error('[SPEECH_RECOGNITION] Microphone permission denied for speech recognition');
             setTranscription('[Microphone permission denied. Please allow and try again.]');
+          } else if (event.error === 'network') {
+            console.error('[SPEECH_RECOGNITION] Network error - cannot connect to Google speech servers');
+            setTranscription(prev => {
+              if (!prev || prev === '[Listening... speak now]') {
+                return '[Network error: Speech recognition requires internet connection. Audio recorded - please type your report.]';
+              }
+              return prev;
+            });
+          } else if (event.error === 'service-not-allowed') {
+            console.error('[SPEECH_RECOGNITION] Service not allowed - may need HTTPS or permissions');
+            setTranscription('[Speech recognition not available. Audio recorded - please type your report.]');
           } else {
             console.error('[SPEECH_RECOGNITION] Unexpected error:', event.error);
             // Only show error message if transcription is still empty or just has listening prompt
             setTranscription(prev => {
               if (!prev || prev === '[Listening... speak now]') {
-                return '[Speech recognition error. Please type your report.]';
+                return '[Speech recognition error. Audio recorded - please type your report.]';
               }
               return prev;
             });
