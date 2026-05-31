@@ -370,6 +370,7 @@ export const VoiceReportingView: React.FC<VoiceReportingProps> = ({ onNavigate }
       
       // Request microphone permission
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      console.log('[REAL_MICROPHONE] Microphone access granted');
       
       // Initialize MediaRecorder for audio playback
       const mediaRecorder = new MediaRecorder(stream);
@@ -400,22 +401,29 @@ export const VoiceReportingView: React.FC<VoiceReportingProps> = ({ onNavigate }
       
       // Initialize Speech Recognition BEFORE starting recording
       if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+        console.log('[SPEECH_RECOGNITION] Speech recognition available, initializing...');
         const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
         const recognition = new SpeechRecognition();
         recognition.lang = lang === 'hi' ? 'hi-IN' : lang === 'bn' ? 'bn-IN' : 'en-IN';
         recognition.continuous = true; // Keep listening during entire recording
         recognition.interimResults = true; // Show interim results as user speaks
+        recognition.maxAlternatives = 1;
+        
+        console.log('[SPEECH_RECOGNITION] Language set to:', recognition.lang);
         
         recognition.onstart = () => {
-          console.log('[SPEECH_RECOGNITION] Started listening');
+          console.log('[SPEECH_RECOGNITION] ✅ Started listening successfully');
+          setTranscription('[Listening... speak now]');
         };
         
         recognition.onresult = (event: any) => {
+          console.log('[SPEECH_RECOGNITION] Got result event, processing...');
           let finalTranscript = '';
           let interimTranscript = '';
           
           for (let i = event.resultIndex; i < event.results.length; i++) {
             const transcript = event.results[i][0].transcript;
+            console.log(`[SPEECH_RECOGNITION] Result ${i}: "${transcript}" (final: ${event.results[i].isFinal})`);
             if (event.results[i].isFinal) {
               finalTranscript += transcript + ' ';
             } else {
@@ -425,36 +433,55 @@ export const VoiceReportingView: React.FC<VoiceReportingProps> = ({ onNavigate }
           
           // Update transcription with final + interim results
           if (finalTranscript) {
-            setTranscription(prev => (prev + ' ' + finalTranscript).trim());
-            console.log('[SPEECH_RECOGNITION] Final transcript:', finalTranscript);
+            setTranscription(prev => {
+              const cleaned = prev.replace(/\[Listening\.\.\. speak now\]/, '').replace(/\[interim\].*$/, '').trim();
+              const updated = (cleaned + ' ' + finalTranscript).trim();
+              console.log('[SPEECH_RECOGNITION] ✅ Final transcript updated:', updated);
+              return updated;
+            });
           } else if (interimTranscript) {
             // Show interim results in real-time
             setTranscription(prev => {
-              const parts = prev.split('[interim]');
-              return parts[0].trim() + (parts[0] ? ' ' : '') + '[interim] ' + interimTranscript;
+              const cleaned = prev.replace(/\[Listening\.\.\. speak now\]/, '').replace(/\[interim\].*$/, '').trim();
+              return cleaned + (cleaned ? ' ' : '') + '[interim] ' + interimTranscript;
             });
           }
         };
         
         recognition.onerror = (event: any) => {
-          console.warn('[SPEECH_RECOGNITION] Error:', event.error);
+          console.error('[SPEECH_RECOGNITION] ❌ Error:', event.error, event);
           if (event.error === 'no-speech') {
-            console.log('[SPEECH_RECOGNITION] No speech detected, continuing...');
+            console.log('[SPEECH_RECOGNITION] No speech detected yet, continuing...');
+            // Don't show error for no-speech, just keep listening
           } else if (event.error === 'aborted') {
-            console.log('[SPEECH_RECOGNITION] Recognition aborted');
-          } else if (event.error !== 'no-speech') {
-            // Only show error message if transcription is still empty
-            setTranscription(prev => prev || '[Audio recorded, transcription unavailable. Please type your report.]');
+            console.log('[SPEECH_RECOGNITION] Recognition aborted (normal on stop)');
+          } else if (event.error === 'not-allowed') {
+            console.error('[SPEECH_RECOGNITION] Microphone permission denied for speech recognition');
+            setTranscription('[Microphone permission denied. Please allow and try again.]');
+          } else {
+            console.error('[SPEECH_RECOGNITION] Unexpected error:', event.error);
+            // Only show error message if transcription is still empty or just has listening prompt
+            setTranscription(prev => {
+              if (!prev || prev === '[Listening... speak now]') {
+                return '[Speech recognition error. Please type your report.]';
+              }
+              return prev;
+            });
           }
         };
         
         recognition.onend = () => {
-          console.log('[SPEECH_RECOGNITION] Ended');
+          console.log('[SPEECH_RECOGNITION] Recognition ended');
           // Clean up interim markers and check if we got any transcription
           setTranscription(prev => {
-            const cleaned = prev.replace(/\[interim\].*$/, '').trim();
+            const cleaned = prev.replace(/\[Listening\.\.\. speak now\]/, '').replace(/\[interim\].*$/, '').trim();
+            console.log('[SPEECH_RECOGNITION] Final cleaned transcript:', cleaned);
             // If no transcription after recording, show fallback message
-            return cleaned || '[Audio recorded, transcription unavailable. Please type your report.]';
+            if (!cleaned) {
+              console.warn('[SPEECH_RECOGNITION] No transcript captured, showing fallback');
+              return '[Audio recorded, transcription unavailable. Please type your report.]';
+            }
+            return cleaned;
           });
         };
         
@@ -462,11 +489,17 @@ export const VoiceReportingView: React.FC<VoiceReportingProps> = ({ onNavigate }
         (window as any).__speechRecognition = recognition;
         
         // Start speech recognition
-        recognition.start();
-        console.log('[SPEECH_RECOGNITION] Starting...');
+        try {
+          recognition.start();
+          console.log('[SPEECH_RECOGNITION] Start command sent, waiting for onstart event...');
+        } catch (e) {
+          console.error('[SPEECH_RECOGNITION] Failed to start:', e);
+          setTranscription('[Speech recognition failed to start. Please type your report.]');
+        }
       } else {
-        console.warn('[SPEECH_RECOGNITION] Not available in this browser');
-        setTranscription('[Speech recognition not available. Please type your report.]');
+        console.error('[SPEECH_RECOGNITION] ❌ Not available in this browser');
+        console.log('[SPEECH_RECOGNITION] Available APIs:', Object.keys(window).filter(k => k.toLowerCase().includes('speech')));
+        setTranscription('[Speech recognition not available in this browser. Please type your report.]');
       }
       
       // Start recording
